@@ -4,7 +4,7 @@
 Mahd is an intelligent, Edge-to-Cloud infant monitoring system designed to ensure data privacy and provide real-time alerts for caregivers. The primary goal of the system is to leverage local Edge AI for acoustic classification and a scalable Cloud infrastructure for event routing, ensuring rapid and secure responses to infant distress.
 
 ## Technologies Used
-- **Artificial Intelligence:** DistilHuBERT (Audio Classification)
+- **Artificial Intelligence:** Deep Learning & Edge-AI Frameworks (Audio Classification)
 - **Edge Computing:** Raspberry Pi 4, Python
 - **Mobile Development:** Flutter, Dart
 - **Cloud & Backend:** Firebase
