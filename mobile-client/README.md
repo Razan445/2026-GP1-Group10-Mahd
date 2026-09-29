@@ -1,17 +1,13 @@
-# mahd_app
+#  تطبيق مَهد 
+هذا المجلد يحتوي على كود تطبيق الجوال لمشروع "مَهد" (نظام المراقبة الذكية للأطفال)، والمبني باستخدام إطار عمل Flutter.
 
-A new Flutter project.
+## فريق تطوير التطبيق (UI & Firebase)
+* **رزان** (تصميم الواجهات الأساسية، المراقبة، والتقارير)
+* **غرسة** (تطوير الإعدادات، الميزات الإضافية، وربط Firebase)
 
-## Getting Started
+##  طريقة التشغيل للمطورين
+بما أننا في مرحلة (Sprint 1)، يتم تشغيل واجهات التطبيق حالياً عبر متصفح الويب لسهولة المعاينة.
+لتشغيل المشروع محلياً، افتح موجه الأوامر (Terminal) داخل هذا المجلد واكتب:
 
-This project is a starting point for a Flutter application.
-
-A few resources to get you started if this is your first Flutter project:
-
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+```bash
+flutter run -d chrome
