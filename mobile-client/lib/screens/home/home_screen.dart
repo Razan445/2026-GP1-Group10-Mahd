@@ -120,6 +120,16 @@ class _HomeTab extends StatelessWidget {
 
             const SizedBox(height: 14),
 
+            // ── Upcoming calendar preview ─────────────────────
+            const _UpcomingCalendarCard(),
+
+            const SizedBox(height: 14),
+
+            // ── Child development preview ─────────────────────
+            const _ChildDevelopmentCard(),
+
+            const SizedBox(height: 14),
+
             // ── White noise quick control ─────────────────────
             const _WhiteNoiseCard(),
 
@@ -650,6 +660,166 @@ class _EnvCard extends StatelessWidget {
                   ),
                 ),
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Upcoming calendar preview ────────────────────────────────────
+class _UpcomingCalendarCard extends StatelessWidget {
+  const _UpcomingCalendarCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: AppColors.cardSurface,
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0D785037),
+            blurRadius: 14,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: AppColors.iconBg,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            alignment: Alignment.center,
+            child: const Icon(
+              Icons.calendar_month_rounded,
+              size: 22,
+              color: AppColors.primary,
+            ),
+          ),
+
+          const SizedBox(width: 12),
+
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'الموعد القادم',
+                  style: AppTextStyles.cardTitle.copyWith(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  'موعد تطعيم',
+                  style: AppTextStyles.featureDesc.copyWith(
+                    fontSize: 11,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  '5 أكتوبر • 10:30 ص',
+                  style: AppTextStyles.featureDesc.copyWith(
+                    fontSize: 10.5,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          Text(
+            'عرض التقويم',
+            style: AppTextStyles.featureDesc.copyWith(
+              fontSize: 10.5,
+              color: AppColors.primary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Child development preview ───────────────────────────────────
+class _ChildDevelopmentCard extends StatelessWidget {
+  const _ChildDevelopmentCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: AppColors.cardSurface,
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0D785037),
+            blurRadius: 14,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: AppColors.iconBg,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            alignment: Alignment.center,
+            child: const Icon(
+              Icons.child_friendly_rounded,
+              size: 22,
+              color: AppColors.primary,
+            ),
+          ),
+
+          const SizedBox(width: 12),
+
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'نمو طفلك',
+                  style: AppTextStyles.cardTitle.copyWith(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  'تطور هذا العمر: يبدأ الطفل بتتبع الأشياء بعينيه',
+                  style: AppTextStyles.featureDesc.copyWith(
+                    fontSize: 11,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          Text(
+            'استكشفي المزيد',
+            style: AppTextStyles.featureDesc.copyWith(
+              fontSize: 10.5,
+              color: AppColors.primary,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],
