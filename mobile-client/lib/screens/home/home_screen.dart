@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
+import '../history/history_screen.dart';
+import '../reports/reports_screen.dart';
 
 /// Screen 07 — الرئيسية (Home Screen)
 ///
@@ -41,16 +43,8 @@ class _HomeScreenState extends State<HomeScreen> {
         index: _currentIndex,
         children: [
           _HomeTab(greeting: _greeting),
-          const _PlaceholderTab(
-            icon: Icons.history_rounded,
-            label: 'السجل',
-            subtitle: 'سيظهر هنا سجل جميع الأحداث المرصودة',
-          ),
-          const _PlaceholderTab(
-            icon: Icons.bar_chart_rounded,
-            label: 'التقارير',
-            subtitle: 'تقارير تفصيلية عن نوم وبكاء طفلك',
-          ),
+          const HistoryScreen(),
+          const ReportsScreen(),
           const _PlaceholderTab(
             icon: Icons.settings_outlined,
             label: 'الإعدادات',
