@@ -103,7 +103,12 @@ class _HomeTab extends StatelessWidget {
             // ── Idle monitoring card ──────────────────────────
             _IdleMonitoringCard(),
 
-            const SizedBox(height: 18),
+            const SizedBox(height: 16),
+
+            // ── Latest detected cry / event ───────────────────
+            const _LatestCryEventCard(),
+
+            const SizedBox(height: 12),
 
             // ── Quick stats ───────────────────────────────────
             _QuickStatsRow(),
@@ -112,6 +117,11 @@ class _HomeTab extends StatelessWidget {
 
             // ── Environment sensors ───────────────────────────
             const _EnvironmentRow(),
+
+            const SizedBox(height: 14),
+
+            // ── White noise quick control ─────────────────────
+            const _WhiteNoiseCard(),
 
             const SizedBox(height: 14),
 
@@ -285,15 +295,151 @@ class _StartMonitoringButton extends StatelessWidget {
   }
 }
 
+// ── Latest detected cry / event ──────────────────────────────────
+class _LatestCryEventCard extends StatelessWidget {
+  const _LatestCryEventCard();
+
+  /// 🔧 MOCK — static classification values until AI inference is connected.
+  static const String _cause = 'جوع';
+  static const String _confidence = '٩٢٪';
+  static const String _timestamp = 'منذ ١٥ دقيقة';
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: AppColors.cardSurface,
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0D785037),
+            blurRadius: 14,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // ── Icon pill ──────────────────────────────
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: AppColors.iconBg,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                alignment: Alignment.center,
+                child: const Icon(
+                  Icons.child_care_rounded,
+                  size: 22,
+                  color: AppColors.primary,
+                ),
+              ),
+
+              const SizedBox(width: 12),
+
+              // ── Title + timestamp ──────────────────────
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'آخر حالة بكاء تم رصدها',
+                      style: AppTextStyles.cardTitle.copyWith(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      _timestamp,
+                      style: AppTextStyles.featureDesc.copyWith(
+                        fontSize: 11,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 10),
+
+          // ── Classification details ─────────────────
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: AppColors.backgroundCream,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      'السبب المحتمل: ',
+                      style: AppTextStyles.featureDesc.copyWith(
+                        fontSize: 11.5,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    Text(
+                      _cause,
+                      style: AppTextStyles.cardTitle.copyWith(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                  ],
+                ),
+                Row(
+                  children: [
+                    Text(
+                      'نسبة التأكد: ',
+                      style: AppTextStyles.featureDesc.copyWith(
+                        fontSize: 11.5,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    Text(
+                      _confidence,
+                      style: AppTextStyles.cardTitle.copyWith(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 // ── Quick stats row ──────────────────────────────────────────────
 class _QuickStatsRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const Row(
       children: [
-        _StatTile(value: '٠', label: 'أحداث بكاء اليوم'),
-        SizedBox(width: 10),
-        _StatTile(value: '٠', label: 'أصوات مهمة', valueColor: AppColors.alert),
+        _StatTile(
+          value: '٠',
+          label: 'أحداث بكاء اليوم',
+          valueColor: AppColors.primary,
+        ),
         SizedBox(width: 10),
         _StatTile(value: '—', label: 'مدة المراقبة'),
       ],
@@ -370,8 +516,8 @@ class _EnvironmentRow extends StatelessWidget {
           child: _EnvCard(
             icon: Icons.thermostat_rounded,
             label: 'درجة الحرارة',
-            value: '${_temperature.toStringAsFixed(0)}°',
-            unit: 'م',
+            value: '${_temperature.toStringAsFixed(0)}',
+            unit: '°م',
             // Comfortable range: 18–26 °C → green tint; outside → warm alert
             accentColor: (_temperature >= 18 && _temperature <= 26)
                 ? AppColors.success
@@ -384,7 +530,7 @@ class _EnvironmentRow extends StatelessWidget {
           child: _EnvCard(
             icon: Icons.water_drop_outlined,
             label: 'الرطوبة',
-            value: '45',
+            value: '$_humidity',
             unit: '%',
             accentColor: AppColors.success,
             iconBgColor: Color(0xFFEDF2EB),
@@ -505,6 +651,103 @@ class _EnvCard extends StatelessWidget {
                 ),
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── White noise quick control ────────────────────────────────────
+class _WhiteNoiseCard extends StatefulWidget {
+  const _WhiteNoiseCard();
+
+  @override
+  State<_WhiteNoiseCard> createState() => _WhiteNoiseCardState();
+}
+
+class _WhiteNoiseCardState extends State<_WhiteNoiseCard> {
+  bool _isWhiteNoiseOn = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: AppColors.cardSurface,
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0D785037),
+            blurRadius: 14,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // ── Icon pill ──────────────────────────────
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: _isWhiteNoiseOn
+                  ? const Color(0xFFFDEADF)
+                  : const Color(0xFFF5EFEA),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            alignment: Alignment.center,
+            child: Icon(
+              Icons.graphic_eq_rounded,
+              size: 22,
+              color: _isWhiteNoiseOn
+                  ? AppColors.primary
+                  : AppColors.textSecondary,
+            ),
+          ),
+
+          const SizedBox(width: 12),
+
+          // ── Title + status subtitle ────────────────
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'الضوضاء البيضاء',
+                  style: AppTextStyles.cardTitle.copyWith(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  _isWhiteNoiseOn ? 'قيد التشغيل' : 'متوقفة حالياً',
+                  style: AppTextStyles.featureDesc.copyWith(
+                    fontSize: 11,
+                    color: _isWhiteNoiseOn
+                        ? AppColors.primary
+                        : AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // ── Toggle Switch ──────────────────────────
+          Switch(
+            value: _isWhiteNoiseOn,
+            onChanged: (value) {
+              setState(() {
+                _isWhiteNoiseOn = value;
+              });
+            },
+            activeThumbColor: Colors.white,
+            activeTrackColor: AppColors.primary,
+            inactiveThumbColor: Colors.white,
+            inactiveTrackColor: AppColors.borderBeige,
           ),
         ],
       ),
