@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
-
+import '../calendar/calendar_screen.dart';
 /// Screen 07 — الرئيسية (Home Screen)
 ///
 /// Current state: **Idle** — monitoring is not active.
@@ -738,14 +738,30 @@ class _UpcomingCalendarCard extends StatelessWidget {
             ),
           ),
 
-          Text(
-            'عرض التقويم',
-            style: AppTextStyles.featureDesc.copyWith(
-              fontSize: 10.5,
-              color: AppColors.primary,
-              fontWeight: FontWeight.w600,
+        InkWell(
+            borderRadius: BorderRadius.circular(8),
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => const CalendarScreen(),
+                ),
+              );
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 4,
+                vertical: 6,
+              ),
+              child: Text(
+                'عرض التقويم',
+                style: AppTextStyles.featureDesc.copyWith(
+                  fontSize: 10.5,
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.w600,
+              ),
             ),
           ),
+        ),
         ],
       ),
     );
