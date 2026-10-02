@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
 import '../calendar/calendar_screen.dart';
+import '../child_development/child_development_screen.dart';
 /// Screen 07 — الرئيسية (Home Screen)
 ///
 /// Current state: **Idle** — monitoring is not active.
@@ -830,12 +831,28 @@ class _ChildDevelopmentCard extends StatelessWidget {
             ),
           ),
 
-          Text(
-            'استكشفي المزيد',
-            style: AppTextStyles.featureDesc.copyWith(
-              fontSize: 10.5,
-              color: AppColors.primary,
-              fontWeight: FontWeight.w600,
+                    InkWell(
+            borderRadius: BorderRadius.circular(8),
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => const ChildDevelopmentScreen(),
+                ),
+              );
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 4,
+                vertical: 6,
+              ),
+              child: Text(
+                'استكشفي المزيد',
+                style: AppTextStyles.featureDesc.copyWith(
+                  fontSize: 10.5,
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
           ),
         ],
