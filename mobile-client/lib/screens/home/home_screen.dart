@@ -1050,7 +1050,7 @@ class _EnvironmentRow extends StatelessWidget {
 
             label: 'درجة الحرارة',
 
-            value: '${_temperature.toStringAsFixed(0)}',
+            value: _temperature.toStringAsFixed(0),
 
             unit: '°م',
 

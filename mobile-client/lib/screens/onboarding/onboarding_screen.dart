@@ -73,8 +73,9 @@ class OnboardingScreen extends StatelessWidget {
                         const SizedBox(height: 12),
                         FeatureCard(
                           icon: _BellIcon(),
-                          title: 'ننبّهك للأصوات المهمة',
-                          description: 'مثل صوت قد يرتبط بسقوط',
+                          title: 'نرسل لك التنبيهات فورًا',
+                          description:
+                              'لتصلك نتائج المراقبة في الوقت المناسب',
                         ),
                         const SizedBox(height: 12),
                         FeatureCard(
@@ -186,34 +187,47 @@ class _BellIconPainter extends CustomPainter {
     final sx = size.width / 24;
     final sy = size.height / 24;
 
-    // Bell body path: M12 3.5a5.5 5.5 0 0 0-5.5 5.5c0 4-2 5.5-2 5.5h15s-2-1.5-2-5.5A5.5 5.5 0 0 0 12 3.5Z
+    // Bell body path
     final bodyPath = Path()
       ..moveTo(12 * sx, 3.5 * sy)
       ..cubicTo(
-        9.0 * sx, 3.5 * sy,
-        6.5 * sx, 5.9 * sy,
-        6.5 * sx, 9.0 * sy,
+        9.0 * sx,
+        3.5 * sy,
+        6.5 * sx,
+        5.9 * sy,
+        6.5 * sx,
+        9.0 * sy,
       )
       ..cubicTo(
-        6.5 * sx, 13.0 * sy,
-        4.5 * sx, 14.5 * sy,
-        4.5 * sx, 14.5 * sy,
+        6.5 * sx,
+        13.0 * sy,
+        4.5 * sx,
+        14.5 * sy,
+        4.5 * sx,
+        14.5 * sy,
       )
       ..lineTo(19.5 * sx, 14.5 * sy)
       ..cubicTo(
-        19.5 * sx, 14.5 * sy,
-        17.5 * sx, 13.0 * sy,
-        17.5 * sx, 9.0 * sy,
+        19.5 * sx,
+        14.5 * sy,
+        17.5 * sx,
+        13.0 * sy,
+        17.5 * sx,
+        9.0 * sy,
       )
       ..cubicTo(
-        17.5 * sx, 5.9 * sy,
-        15.0 * sx, 3.5 * sy,
-        12 * sx, 3.5 * sy,
+        17.5 * sx,
+        5.9 * sy,
+        15.0 * sx,
+        3.5 * sy,
+        12 * sx,
+        3.5 * sy,
       )
       ..close();
+
     canvas.drawPath(bodyPath, paint);
 
-    // Clapper: M10 18a2 2 0 0 0 4 0
+    // Clapper
     final clapperPath = Path()
       ..moveTo(10 * sx, 18 * sy)
       ..arcToPoint(
@@ -221,6 +235,7 @@ class _BellIconPainter extends CustomPainter {
         radius: Radius.circular(2 * sx),
         clockwise: false,
       );
+
     canvas.drawPath(clapperPath, paint);
   }
 
@@ -252,30 +267,38 @@ class _ShieldIconPainter extends CustomPainter {
     final sx = size.width / 24;
     final sy = size.height / 24;
 
-    // Shield: M12 3.5 5 6.5v5c0 4.2 2.9 7.6 7 9 4.1-1.4 7-4.8 7-9v-5l-7-3Z
+    // Shield
     final shieldPath = Path()
       ..moveTo(12 * sx, 3.5 * sy)
       ..lineTo(5 * sx, 6.5 * sy)
       ..lineTo(5 * sx, 11.5 * sy)
       ..cubicTo(
-        5 * sx, 15.7 * sy,
-        7.9 * sx, 19.1 * sy,
-        12 * sx, 20.5 * sy,
+        5 * sx,
+        15.7 * sy,
+        7.9 * sx,
+        19.1 * sy,
+        12 * sx,
+        20.5 * sy,
       )
       ..cubicTo(
-        16.1 * sx, 19.1 * sy,
-        19 * sx, 15.7 * sy,
-        19 * sx, 11.5 * sy,
+        16.1 * sx,
+        19.1 * sy,
+        19 * sx,
+        15.7 * sy,
+        19 * sx,
+        11.5 * sy,
       )
       ..lineTo(19 * sx, 6.5 * sy)
       ..close();
+
     canvas.drawPath(shieldPath, paint);
 
-    // Check mark: m9.4 12 1.9 1.9 3.4-3.6
+    // Check mark
     final checkPath = Path()
       ..moveTo(9.4 * sx, 12 * sy)
       ..lineTo(11.3 * sx, 13.9 * sy)
       ..lineTo(14.7 * sx, 10.3 * sy);
+
     canvas.drawPath(checkPath, paint);
   }
 
