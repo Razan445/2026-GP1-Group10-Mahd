@@ -69,19 +69,9 @@ class _HomeScreenState extends State<HomeScreen> {
         index: _currentIndex,
         children: [
           _HomeTab(greeting: _greeting),
-          const _PlaceholderTab(
-            icon: Icons.history_rounded,
-            label: 'السجل',
-            subtitle: 'سيظهر هنا سجل جميع الأحداث المرصودة',
-          ),
-          const _PlaceholderTab(
-            icon: Icons.bar_chart_rounded,
-            label: 'التقارير',
-            subtitle: 'تقارير تفصيلية عن نوم وبكاء طفلك',
-          ),
-          const SettingsScreen(),
           const HistoryScreen(),
           const ReportsScreen(),
+          const SettingsScreen(),
         ],
       ),
 
@@ -1198,73 +1188,6 @@ class _NavTile extends StatelessWidget {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-// ────────────────────────────────────────────────────────────────
-
-//  Placeholder tabs (History / Reports / Settings)
-
-//  Will be replaced with real screens in future iterations.
-
-// ────────────────────────────────────────────────────────────────
-
-class _PlaceholderTab extends StatelessWidget {
-  const _PlaceholderTab({
-    required this.icon,
-    required this.label,
-    required this.subtitle,
-  });
-
-  final IconData icon;
-
-  final String label;
-
-  final String subtitle;
-
-  @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 80,
-                height: 80,
-                decoration: const BoxDecoration(
-                  color: AppColors.iconBg,
-                  shape: BoxShape.circle,
-                ),
-                alignment: Alignment.center,
-                child: Icon(icon, size: 36, color: AppColors.primary),
-              ),
-              const SizedBox(height: 18),
-              Text(
-                label,
-                style: AppTextStyles.screenTitle.copyWith(fontSize: 19),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                subtitle,
-                style: AppTextStyles.helperText,
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'قادم قريبًا',
-                style: AppTextStyles.helperText.copyWith(
-                  color: AppColors.primary,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
         ),
       ),
     );
