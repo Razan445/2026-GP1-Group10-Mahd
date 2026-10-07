@@ -5,7 +5,7 @@ import '../../core/theme/app_theme.dart';
 //  Data model
 // ──────────────────────────────────────────────
 
-enum HistoryEventType { cry, alert, unclassified }
+enum HistoryEventType { cry, temperature, humidity, unclassified }
 
 class HistoryEvent {
   const HistoryEvent({
@@ -72,10 +72,17 @@ final List<HistoryEvent> _mockEvents = [
     confidence: '٩١٪',
   ),
   HistoryEvent(
-    type: HistoryEventType.alert,
+    type: HistoryEventType.temperature,
     title: 'تنبيه درجة الحرارة',
     description: 'ارتفاع في درجة حرارة الغرفة',
     timestamp: DateTime(2025, 3, 10, 11, 45),
+    isAlert: true,
+  ),
+  HistoryEvent(
+    type: HistoryEventType.humidity,
+    title: 'تنبيه الرطوبة',
+    description: 'انخفاض في نسبة الرطوبة في الغرفة',
+    timestamp: DateTime(2025, 3, 10, 9, 20),
     isAlert: true,
   ),
 ];
@@ -83,7 +90,7 @@ final List<HistoryEvent> _mockEvents = [
 // ──────────────────────────────────────────────
 //  Screen
 // ──────────────────────────────────────────────
-enum _HistoryFilter { all, cry, important }
+enum _HistoryFilter { all, cry, temperature, humidity }
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -101,8 +108,14 @@ class _HistoryScreenState extends State<HistoryScreen> {
         return _mockEvents
             .where((e) => e.type == HistoryEventType.cry)
             .toList();
-      case _HistoryFilter.important:
-        return _mockEvents.where((e) => e.isAlert).toList();
+      case _HistoryFilter.temperature:
+        return _mockEvents
+            .where((e) => e.type == HistoryEventType.temperature)
+            .toList();
+      case _HistoryFilter.humidity:
+        return _mockEvents
+            .where((e) => e.type == HistoryEventType.humidity)
+            .toList();
       case _HistoryFilter.all:
         return _mockEvents;
     }
@@ -176,26 +189,35 @@ class _FilterChips extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        _Chip(
-          label: 'الكل',
-          isSelected: selected == _HistoryFilter.all,
-          onTap: () => onChanged(_HistoryFilter.all),
-        ),
-        const SizedBox(width: 8),
-        _Chip(
-          label: 'بكاء',
-          isSelected: selected == _HistoryFilter.cry,
-          onTap: () => onChanged(_HistoryFilter.cry),
-        ),
-        const SizedBox(width: 8),
-        _Chip(
-          label: 'أصوات مهمة',
-          isSelected: selected == _HistoryFilter.important,
-          onTap: () => onChanged(_HistoryFilter.important),
-        ),
-      ],
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          _Chip(
+            label: 'الكل',
+            isSelected: selected == _HistoryFilter.all,
+            onTap: () => onChanged(_HistoryFilter.all),
+          ),
+          const SizedBox(width: 8),
+          _Chip(
+            label: 'بكاء',
+            isSelected: selected == _HistoryFilter.cry,
+            onTap: () => onChanged(_HistoryFilter.cry),
+          ),
+          const SizedBox(width: 8),
+          _Chip(
+            label: 'الحرارة',
+            isSelected: selected == _HistoryFilter.temperature,
+            onTap: () => onChanged(_HistoryFilter.temperature),
+          ),
+          const SizedBox(width: 8),
+          _Chip(
+            label: 'الرطوبة',
+            isSelected: selected == _HistoryFilter.humidity,
+            onTap: () => onChanged(_HistoryFilter.humidity),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -438,7 +460,11 @@ class _EventIcon extends StatelessWidget {
     Color bgColor;
 
     if (event.isAlert) {
-      icon = Icons.warning_rounded;
+      icon = event.type == HistoryEventType.humidity
+          ? Icons.water_drop_rounded
+          : event.type == HistoryEventType.temperature
+              ? Icons.thermostat_rounded
+              : Icons.warning_rounded;
       iconColor = AppColors.alert;
       bgColor = AppColors.alert;
     } else if (event.type == HistoryEventType.cry) {
