@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "867919693272",
+    "project_id": "mahd-89d69",
+    "storage_bucket": "mahd-89d69.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:867919693272:android:240be2c56c470183ca5ead",
+        "android_client_info": {
+          "package_name": "com.mahd.mahd_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDeM7MqBqzBenvkVaYWZN51EQIhpA3Yn3o"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

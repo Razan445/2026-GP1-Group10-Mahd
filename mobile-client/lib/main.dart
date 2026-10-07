@@ -1,9 +1,11 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'core/routes/app_routes.dart';
 import 'core/theme/app_theme.dart';
+import 'firebase_options.dart';
 import 'screens/home/home_screen.dart';
 import 'screens/infant_registration/infant_registration_screen.dart';
 import 'screens/login/login_screen.dart';
@@ -11,8 +13,12 @@ import 'screens/onboarding/onboarding_screen.dart';
 import 'screens/sign_up/sign_up_screen.dart';
 import 'screens/splash/splash_screen.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
 
   // Lock orientation to portrait
   SystemChrome.setPreferredOrientations([
