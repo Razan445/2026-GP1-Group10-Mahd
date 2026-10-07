@@ -35,13 +35,6 @@ class HistoryEvent {
 final List<HistoryEvent> _mockEvents = [
   // ─── Today ───────────────────────────────────────────────────
   HistoryEvent(
-    type: HistoryEventType.alert,
-    title: 'صوت قد يرتبط بسقوط',
-    description: 'تم رصد صوت غير اعتيادي قد يشير إلى سقوط',
-    timestamp: DateTime(2025, 3, 12, 10, 44),
-    isAlert: true,
-  ),
-  HistoryEvent(
     type: HistoryEventType.cry,
     title: 'بكاء - الجوع',
     description: 'نمط بكاء منتظم يشير إلى الجوع',
@@ -419,7 +412,11 @@ class _EventCard extends StatelessWidget {
   }
 
   String _formatTime(DateTime dt) {
-    final h = dt.hour > 12 ? dt.hour - 12 : dt.hour == 0 ? 12 : dt.hour;
+    final h = dt.hour > 12
+        ? dt.hour - 12
+        : dt.hour == 0
+            ? 12
+            : dt.hour;
     final period = dt.hour >= 12 ? 'م' : 'ص';
     final m = dt.minute.toString().padLeft(2, '0');
     return '$h:$m $period';
