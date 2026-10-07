@@ -23,6 +23,13 @@ class _CauseStat {
 // ──────────────────────────────────────────────
 //  Mock data  🔧  Replace with real API data
 // ──────────────────────────────────────────────
+
+/// Daily: single bar showing today's events
+const _dailyStats = [
+  _DayStat(dayLabel: 'اليوم', count: 4),
+];
+
+/// Weekly: one bar per day (Sun → Sat)
 const _weeklyStats = [
   _DayStat(dayLabel: 'ح', count: 2),
   _DayStat(dayLabel: 'خ', count: 5),
@@ -31,6 +38,14 @@ const _weeklyStats = [
   _DayStat(dayLabel: 'ر', count: 7),
   _DayStat(dayLabel: 'أ', count: 4),
   _DayStat(dayLabel: 'س', count: 6),
+];
+
+/// Monthly: one bar per week
+const _monthlyStats = [
+  _DayStat(dayLabel: 'أ١', count: 12),
+  _DayStat(dayLabel: 'أ٢', count: 18),
+  _DayStat(dayLabel: 'أ٣', count: 9),
+  _DayStat(dayLabel: 'أ٤', count: 15),
 ];
 
 const _causeStats = [
@@ -287,7 +302,7 @@ class _ArrowBtn extends StatelessWidget {
 }
 
 // ──────────────────────────────────────────────
-//  Summary tiles (2×2 grid)
+//  Summary tiles
 // ──────────────────────────────────────────────
 class _SummaryTiles extends StatelessWidget {
   const _SummaryTiles();
@@ -296,26 +311,17 @@ class _SummaryTiles extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Row(
-          children: [
-            _SummaryTile(
-              label: 'أحداث البكاء',
-              value: '١٨',
-              icon: Icons.graphic_eq_rounded,
-              iconBg: AppColors.iconBg,
-              iconColor: AppColors.primary,
-            ),
-            const SizedBox(width: 12),
-            _SummaryTile(
-              label: 'أصوات مهمة',
-              value: '٢',
-              icon: Icons.warning_amber_rounded,
-              iconBg: AppColors.alertBg,
-              iconColor: AppColors.alert,
-            ),
-          ],
+        // ── Full-width crying events tile ─────────────────────────
+        _SummaryTile(
+          label: 'أحداث البكاء',
+          value: '١٨',
+          icon: Icons.graphic_eq_rounded,
+          iconBg: AppColors.iconBg,
+          iconColor: AppColors.primary,
+          fullWidth: true,
         ),
         const SizedBox(height: 12),
+        // ── Two-column row ────────────────────────────────────────
         Row(
           children: [
             _SummaryTile(
@@ -347,6 +353,7 @@ class _SummaryTile extends StatelessWidget {
     required this.icon,
     required this.iconBg,
     required this.iconColor,
+    this.fullWidth = false,
   });
 
   final String label;
@@ -355,59 +362,64 @@ class _SummaryTile extends StatelessWidget {
   final Color iconBg;
   final Color iconColor;
 
+  /// When true, the tile fills available width without Expanded
+  /// (use outside a Row to span the full width).
+  final bool fullWidth;
+
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-        decoration: BoxDecoration(
-          color: AppColors.cardSurface,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x0A785037),
-              blurRadius: 12,
-              offset: Offset(0, 3),
+    final card = Container(
+      width: fullWidth ? double.infinity : null,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      decoration: BoxDecoration(
+        color: AppColors.cardSurface,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0A785037),
+            blurRadius: 12,
+            offset: Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: iconBg,
+              borderRadius: BorderRadius.circular(12),
             ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                color: iconBg,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              alignment: Alignment.center,
-              child: Icon(icon, size: 19, color: iconColor),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    value,
-                    style: AppTextStyles.cardTitle.copyWith(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 16,
-                    ),
+            alignment: Alignment.center,
+            child: Icon(icon, size: 19, color: iconColor),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  value,
+                  style: AppTextStyles.cardTitle.copyWith(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 16,
                   ),
-                  Text(
-                    label,
-                    style: AppTextStyles.helperText.copyWith(fontSize: 11),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
+                ),
+                Text(
+                  label,
+                  style: AppTextStyles.helperText.copyWith(fontSize: 11),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
+
+    return fullWidth ? card : Expanded(child: card);
   }
 }
 
@@ -425,8 +437,37 @@ class _CryingBarChartCard extends StatelessWidget {
   final int touchedIndex;
   final ValueChanged<int> onBarTouched;
 
+  /// Returns the correct dataset for the active period
+  List<_DayStat> get _stats {
+    switch (period) {
+      case _ReportPeriod.daily:
+        return _dailyStats;
+      case _ReportPeriod.weekly:
+        return _weeklyStats;
+      case _ReportPeriod.monthly:
+        return _monthlyStats;
+    }
+  }
+
+  /// Chart title that reflects the active period
+  String get _chartTitle {
+    switch (period) {
+      case _ReportPeriod.daily:
+        return 'أحداث البكاء اليوم';
+      case _ReportPeriod.weekly:
+        return 'أحداث البكاء خلال الأسبوع';
+      case _ReportPeriod.monthly:
+        return 'أحداث البكاء خلال الشهر';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final stats = _stats;
+    final maxCount = stats.map((e) => e.count).reduce((a, b) => a > b ? a : b);
+    // Round up to the next multiple of 5 for a clean Y-axis
+    final maxY = ((maxCount / 5).ceil() * 5).toDouble().clamp(5, 200).toDouble();
+
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 18, 16, 12),
       decoration: BoxDecoration(
@@ -444,7 +485,7 @@ class _CryingBarChartCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            'أحداث البكاء خلال الأسبوع',
+            _chartTitle,
             style: AppTextStyles.cardTitle.copyWith(
               fontWeight: FontWeight.w600,
               fontSize: 14,
@@ -456,7 +497,7 @@ class _CryingBarChartCard extends StatelessWidget {
             child: BarChart(
               BarChartData(
                 alignment: BarChartAlignment.spaceAround,
-                maxY: 10,
+                maxY: maxY,
                 barTouchData: BarTouchData(
                   touchTooltipData: BarTouchTooltipData(
                     getTooltipColor: (_) => AppColors.darkSurface,
@@ -487,13 +528,13 @@ class _CryingBarChartCard extends StatelessWidget {
                       showTitles: true,
                       getTitlesWidget: (value, meta) {
                         final i = value.toInt();
-                        if (i < 0 || i >= _weeklyStats.length) {
+                        if (i < 0 || i >= stats.length) {
                           return const SizedBox.shrink();
                         }
                         return Padding(
                           padding: const EdgeInsets.only(top: 6),
                           child: Text(
-                            _weeklyStats[i].dayLabel,
+                            stats[i].dayLabel,
                             style: AppTextStyles.helperText.copyWith(
                               fontSize: 11,
                               color: AppColors.textSecondary,
@@ -507,10 +548,12 @@ class _CryingBarChartCard extends StatelessWidget {
                   leftTitles: AxisTitles(
                     sideTitles: SideTitles(
                       showTitles: true,
-                      interval: 5,
+                      interval: maxY / 2,
                       reservedSize: 28,
                       getTitlesWidget: (value, meta) {
-                        if (value == 0 || value == 5 || value == 10) {
+                        if (value == 0 ||
+                            value == maxY / 2 ||
+                            value == maxY) {
                           return Text(
                             '${value.toInt()}',
                             style: AppTextStyles.helperText.copyWith(
@@ -533,15 +576,15 @@ class _CryingBarChartCard extends StatelessWidget {
                 gridData: FlGridData(
                   show: true,
                   drawVerticalLine: false,
-                  horizontalInterval: 5,
-                  getDrawingHorizontalLine: (value) => FlLine(
+                  horizontalInterval: maxY / 2,
+                  getDrawingHorizontalLine: (value) => const FlLine(
                     color: AppColors.borderLight,
                     strokeWidth: 1,
                     dashArray: [4, 4],
                   ),
                 ),
                 borderData: FlBorderData(show: false),
-                barGroups: _weeklyStats.asMap().entries.map((entry) {
+                barGroups: stats.asMap().entries.map((entry) {
                   final i = entry.key;
                   final stat = entry.value;
                   final isTouched = i == touchedIndex;
@@ -554,13 +597,13 @@ class _CryingBarChartCard extends StatelessWidget {
                         color: isTouched
                             ? AppColors.primaryDark
                             : AppColors.primary,
-                        width: 22,
+                        width: period == _ReportPeriod.daily ? 48 : 22,
                         borderRadius: const BorderRadius.vertical(
                           top: Radius.circular(8),
                         ),
                         backDrawRodData: BackgroundBarChartRodData(
                           show: true,
-                          toY: 10,
+                          toY: maxY,
                           color: AppColors.backgroundBeige,
                         ),
                       ),
