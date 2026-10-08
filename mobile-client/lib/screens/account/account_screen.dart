@@ -25,15 +25,10 @@ class _AccountScreenState extends State<AccountScreen> {
     text: 'sara@example.com',
   );
 
-  final _phoneController = TextEditingController(
-    text: '05 0123 4567',
-  );
-
   @override
   void dispose() {
     _nameController.dispose();
     _emailController.dispose();
-    _phoneController.dispose();
     super.dispose();
   }
 
@@ -162,26 +157,6 @@ class _AccountScreenState extends State<AccountScreen> {
 
                   if (!emailRegex.hasMatch(value.trim())) {
                     return 'صيغة البريد الإلكتروني غير صحيحة';
-                  }
-
-                  return null;
-                },
-              ),
-
-              const SizedBox(height: 14),
-
-              // ─────────────────────────────────────────────
-              // Phone number
-              // ─────────────────────────────────────────────
-              AppTextField(
-                label: 'رقم الجوال',
-                controller: _phoneController,
-                hint: '05X XXX XXXX',
-                keyboardType: TextInputType.phone,
-                textDirection: TextDirection.ltr,
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'رقم الجوال مطلوب';
                   }
 
                   return null;

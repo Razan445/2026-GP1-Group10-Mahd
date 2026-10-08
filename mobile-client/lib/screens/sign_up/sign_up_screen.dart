@@ -6,7 +6,7 @@ import '../../widgets/primary_button.dart';
 
 /// Screen 03 — إنشاء حساب (Sign-Up Screen)
 ///
-/// Full registration form: Full Name, Email, Phone,
+/// Full registration form: Full Name, Email,
 /// Password (with visibility toggle), Confirm Password,
 /// plus a primary "إنشاء الحساب" button.
 class SignUpScreen extends StatefulWidget {
@@ -20,7 +20,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
-  final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmController = TextEditingController();
 
@@ -30,7 +29,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
   void dispose() {
     _nameController.dispose();
     _emailController.dispose();
-    _phoneController.dispose();
     _passwordController.dispose();
     _confirmController.dispose();
     super.dispose();
@@ -47,13 +45,16 @@ class _SignUpScreenState extends State<SignUpScreen> {
     if (!mounted) return;
     setState(() => _isLoading = false);
 
-    // TODO: integrate real auth — navigate to home on success
+    // TODO: integrate real auth before navigating
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('تم إنشاء الحساب بنجاح!'),
         backgroundColor: AppColors.success,
       ),
     );
+
+    // New accounts continue to register their infant
+    Navigator.pushReplacementNamed(context, AppRoutes.infantRegistration);
   }
 
   @override
@@ -111,22 +112,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                         RegExp(r'^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$');
                     if (!emailRegex.hasMatch(v.trim())) {
                       return 'صيغة البريد الإلكتروني غير صحيحة';
-                    }
-                    return null;
-                  },
-                ),
-
-                const SizedBox(height: 14),
-
-                AppTextField(
-                  label: 'رقم الجوال',
-                  hint: '05X XXX XXXX',
-                  controller: _phoneController,
-                  keyboardType: TextInputType.phone,
-                  textDirection: TextDirection.ltr,
-                  validator: (v) {
-                    if (v == null || v.trim().isEmpty) {
-                      return 'رقم الجوال مطلوب';
                     }
                     return null;
                   },
