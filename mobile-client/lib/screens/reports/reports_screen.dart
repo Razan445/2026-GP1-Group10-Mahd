@@ -24,9 +24,29 @@ class _CauseStat {
 //  Mock data  🔧  Replace with real API data
 // ──────────────────────────────────────────────
 
-/// Daily: single bar showing today's events
+/// Daily: today's events distributed across 3-hour time slots
+/// (ص = AM, م = PM). Each label marks the start of its slot.
 const _dailyStats = [
-  _DayStat(dayLabel: 'اليوم', count: 4),
+  _DayStat(dayLabel: '١٢ص', count: 1),
+  _DayStat(dayLabel: '٣ص', count: 2),
+  _DayStat(dayLabel: '٦ص', count: 0),
+  _DayStat(dayLabel: '٩ص', count: 1),
+  _DayStat(dayLabel: '١٢م', count: 0),
+  _DayStat(dayLabel: '٣م', count: 1),
+  _DayStat(dayLabel: '٦م', count: 3),
+  _DayStat(dayLabel: '٩م', count: 2),
+];
+
+/// Full time-range text for each daily slot (used for the peak hint).
+const _dailySlotRanges = [
+  '١٢ص - ٣ص',
+  '٣ص - ٦ص',
+  '٦ص - ٩ص',
+  '٩ص - ١٢م',
+  '١٢م - ٣م',
+  '٣م - ٦م',
+  '٦م - ٩م',
+  '٩م - ١٢ص',
 ];
 
 /// Weekly: one bar per day (Sun → Sat)
@@ -465,8 +485,14 @@ class _CryingBarChartCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final stats = _stats;
     final maxCount = stats.map((e) => e.count).reduce((a, b) => a > b ? a : b);
-    // Round up to the next multiple of 5 for a clean Y-axis
-    final maxY = ((maxCount / 5).ceil() * 5).toDouble().clamp(5, 200).toDouble();
+    // Round up so that maxY / 2 is always a whole number (clean Y-axis):
+    // small counts → multiples of 2, larger counts → multiples of 10.
+    final unit = maxCount <= 4 ? 2 : 10;
+    final maxY = ((maxCount / unit).ceil() * unit).clamp(2, 200).toDouble();
+
+    // Peak time slot (daily view only)
+    final peakIndex = stats.indexWhere((e) => e.count == maxCount);
+    final showPeak = period == _ReportPeriod.daily && maxCount > 0;
 
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 18, 16, 12),
@@ -491,6 +517,16 @@ class _CryingBarChartCard extends StatelessWidget {
               fontSize: 14,
             ),
           ),
+          if (showPeak) ...[
+            const SizedBox(height: 4),
+            Text(
+              'أكثر فترة بكاء: ${_dailySlotRanges[peakIndex]}',
+              style: AppTextStyles.helperText.copyWith(
+                fontSize: 11.5,
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ],
           const SizedBox(height: 20),
           SizedBox(
             height: 160,
@@ -597,7 +633,7 @@ class _CryingBarChartCard extends StatelessWidget {
                         color: isTouched
                             ? AppColors.primaryDark
                             : AppColors.primary,
-                        width: period == _ReportPeriod.daily ? 48 : 22,
+                        width: period == _ReportPeriod.daily ? 18 : 22,
                         borderRadius: const BorderRadius.vertical(
                           top: Radius.circular(8),
                         ),
