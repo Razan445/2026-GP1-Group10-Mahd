@@ -18,7 +18,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   bool _cryAlerts = true;
   bool _environmentAlerts = true;
   bool _connectionAlerts = true;
-  bool _soundAndVibration = false;
 
   @override
   Widget build(BuildContext context) {
@@ -118,20 +117,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     onChanged: (value) {
                       setState(() {
                         _connectionAlerts = value;
-                      });
-                    },
-                  ),
-
-                  const _NotificationDivider(),
-
-                  _NotificationRow(
-                    title: 'النغمة والاهتزاز',
-                    subtitle:
-                        'تنبيه مسموع مع الإشعار',
-                    value: _soundAndVibration,
-                    onChanged: (value) {
-                      setState(() {
-                        _soundAndVibration = value;
                       });
                     },
                   ),

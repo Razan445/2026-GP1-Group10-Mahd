@@ -1,41 +1,24 @@
 import 'package:flutter/material.dart';
-
 import '../../core/theme/app_theme.dart';
-
 import '../calendar/calendar_screen.dart';
-
 import '../child_development/child_development_screen.dart';
-
 import '../settings/settings_screen.dart';
 import '../history/history_screen.dart';
 import '../reports/reports_screen.dart';
 
 /// Screen 07 — الرئيسية (Home Screen)
-
 ///
-
 /// Current state: **Idle** — monitoring is not active.
-
 ///
-
 /// Layout:
-
 ///  • Top bar  : logo + notification bell
-
 ///  • Greeting : "مساء الخير، غرسه"
-
 ///  • Center   : Idle monitoring card (mic icon, status text, start button)
-
 ///  • Stats    : 3 small quick-stat tiles
-
 ///  • Bottom   : [_MahdBottomNav] with 4 tabs
-
 ///
-
 /// Navigation between tabs swaps the body content while keeping
-
 /// the BottomNavigationBar alive (IndexedStack).
-
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -45,17 +28,122 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
+  bool _hasImportantReminders = true;
 
   // Greeting based on time-of-day
-
   String get _greeting {
     final hour = DateTime.now().hour;
 
     if (hour < 12) return 'صباح الخير';
-
     if (hour < 18) return 'مساء الخير';
-
     return 'مساء الخير';
+  }
+
+  Future<void> _showReminderDialog() async {
+    setState(() {
+      _hasImportantReminders = false;
+    });
+
+    await showDialog<void>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.28),
+      builder: (dialogContext) {
+        return Directionality(
+          textDirection: TextDirection.rtl,
+          child: AlertDialog(
+            backgroundColor: AppColors.cardSurface,
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(24),
+            ),
+            title: Text(
+              'عندك تذكيرات مهمة',
+              textAlign: TextAlign.center,
+              style: AppTextStyles.screenTitle.copyWith(
+                fontSize: 18,
+              ),
+            ),
+            content: Text(
+              'لديك تذكيرات تحتاج إلى انتباهك. يمكنك عرضها في السجل.',
+              textAlign: TextAlign.center,
+              style: AppTextStyles.helperText.copyWith(
+                fontSize: 11.5,
+                height: 1.7,
+              ),
+            ),
+            actionsPadding: const EdgeInsets.fromLTRB(
+              18,
+              8,
+              18,
+              18,
+            ),
+            actions: [
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () {
+                        Navigator.of(dialogContext).pop();
+                      },
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.textPrimary,
+                        side: const BorderSide(
+                          color: AppColors.borderBeige,
+                          width: 1.2,
+                        ),
+                        minimumSize: const Size(
+                          double.infinity,
+                          46,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      child: Text(
+                        'إغلاق',
+                        style: AppTextStyles.buttonTextDark.copyWith(
+                          fontSize: 12.5,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.of(dialogContext).pop();
+
+                        setState(() {
+                          _currentIndex = 1;
+                        });
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        minimumSize: const Size(
+                          double.infinity,
+                          46,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      child: Text(
+                        'عرضها',
+                        style: AppTextStyles.buttonText.copyWith(
+                          fontSize: 12.5,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -64,11 +152,14 @@ class _HomeScreenState extends State<HomeScreen> {
       backgroundColor: AppColors.backgroundCream,
 
       // ── Tab body ─────────────────────────────────────────────
-
       body: IndexedStack(
         index: _currentIndex,
         children: [
-          _HomeTab(greeting: _greeting),
+          _HomeTab(
+            greeting: _greeting,
+            showReminderBadge: _hasImportantReminders,
+            onBellTap: _showReminderDialog,
+          ),
           const HistoryScreen(),
           const ReportsScreen(),
           const SettingsScreen(),
@@ -76,7 +167,6 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
 
       // ── Bottom nav ───────────────────────────────────────────
-
       bottomNavigationBar: _MahdBottomNav(
         currentIndex: _currentIndex,
         onTap: (i) => setState(() => _currentIndex = i),
@@ -86,15 +176,19 @@ class _HomeScreenState extends State<HomeScreen> {
 }
 
 // ────────────────────────────────────────────────────────────────
-
 //  Home tab — الرئيسية
-
 // ────────────────────────────────────────────────────────────────
 
 class _HomeTab extends StatelessWidget {
-  const _HomeTab({required this.greeting});
+  const _HomeTab({
+    required this.greeting,
+    required this.showReminderBadge,
+    required this.onBellTap,
+  });
 
   final String greeting;
+  final bool showReminderBadge;
+  final VoidCallback onBellTap;
 
   @override
   Widget build(BuildContext context) {
@@ -105,13 +199,14 @@ class _HomeTab extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // ── Top bar ──────────────────────────────────────
-
-            _TopBar(),
+            _TopBar(
+              showReminderBadge: showReminderBadge,
+              onBellTap: onBellTap,
+            ),
 
             const SizedBox(height: 6),
 
             // ── Greeting ─────────────────────────────────────
-
             Text(
               '$greeting، سارة',
               style: AppTextStyles.screenTitle.copyWith(fontSize: 21),
@@ -127,49 +222,41 @@ class _HomeTab extends StatelessWidget {
             const SizedBox(height: 20),
 
             // ── Idle monitoring card ──────────────────────────
-
             _IdleMonitoringCard(),
 
             const SizedBox(height: 16),
 
             // ── Latest detected cry / event ───────────────────
-
             const _LatestCryEventCard(),
 
             const SizedBox(height: 12),
 
             // ── Quick stats ───────────────────────────────────
-
             _QuickStatsRow(),
 
             const SizedBox(height: 14),
 
             // ── Environment sensors ───────────────────────────
-
             const _EnvironmentRow(),
 
             const SizedBox(height: 14),
 
             // ── Upcoming calendar preview ─────────────────────
-
             const _UpcomingCalendarCard(),
 
             const SizedBox(height: 14),
 
             // ── Child development preview ─────────────────────
-
             const _ChildDevelopmentCard(),
 
             const SizedBox(height: 14),
 
             // ── White noise quick control ─────────────────────
-
             const _WhiteNoiseCard(),
 
             const SizedBox(height: 14),
 
             // ── Privacy note ──────────────────────────────────
-
             _PrivacyNote(),
           ],
         ),
@@ -181,6 +268,14 @@ class _HomeTab extends StatelessWidget {
 // ── Top bar (logo + notification bell) ──────────────────────────
 
 class _TopBar extends StatelessWidget {
+  const _TopBar({
+    required this.showReminderBadge,
+    required this.onBellTap,
+  });
+
+  final bool showReminderBadge;
+  final VoidCallback onBellTap;
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -193,45 +288,50 @@ class _TopBar extends StatelessWidget {
             width: 62,
             fit: BoxFit.contain,
           ),
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              color: AppColors.cardSurface,
-              borderRadius: BorderRadius.circular(15),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x0F785037),
-                  blurRadius: 14,
-                  offset: Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                const Icon(
-                  Icons.notifications_none_rounded,
-                  color: AppColors.textPrimary,
-                  size: 22,
-                ),
-
-                // Unread badge
-
-                Positioned(
-                  top: 9,
-                  left: 10,
-                  child: Container(
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: AppColors.alert,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 1.5),
-                    ),
+          InkWell(
+            onTap: onBellTap,
+            borderRadius: BorderRadius.circular(15),
+            child: Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: AppColors.cardSurface,
+                borderRadius: BorderRadius.circular(15),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x0F785037),
+                    blurRadius: 14,
+                    offset: Offset(0, 4),
                   ),
-                ),
-              ],
+                ],
+              ),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  const Icon(
+                    Icons.notifications_none_rounded,
+                    color: AppColors.textPrimary,
+                    size: 22,
+                  ),
+                  if (showReminderBadge)
+                    Positioned(
+                      top: 9,
+                      left: 10,
+                      child: Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: AppColors.alert,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: Colors.white,
+                            width: 1.5,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
         ],
@@ -266,7 +366,6 @@ class _IdleMonitoringCard extends StatelessWidget {
       child: Column(
         children: [
           // ── Microphone icon container ─────────────────
-
           Container(
             width: 118,
             height: 118,
@@ -285,7 +384,6 @@ class _IdleMonitoringCard extends StatelessWidget {
           const SizedBox(height: 18),
 
           // ── Status texts ──────────────────────────────
-
           Text(
             'المراقبة متوقفة',
             style: AppTextStyles.screenTitle.copyWith(fontSize: 17),
@@ -305,7 +403,6 @@ class _IdleMonitoringCard extends StatelessWidget {
           const SizedBox(height: 20),
 
           // ── Start monitoring button ───────────────────
-
           _StartMonitoringButton(),
         ],
       ),
@@ -324,7 +421,6 @@ class _StartMonitoringButton extends StatelessWidget {
       child: TextButton(
         onPressed: () {
           // TODO: trigger monitoring session (future feature)
-
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('بدء جلسة المراقبة… (قريبًا)'),
@@ -356,11 +452,8 @@ class _LatestCryEventCard extends StatelessWidget {
   const _LatestCryEventCard();
 
   /// 🔧 MOCK — static classification values until AI inference is connected.
-
   static const String _cause = 'جوع';
-
   static const String _confidence = '٩٢٪';
-
   static const String _timestamp = 'منذ ١٥ دقيقة';
 
   @override
@@ -385,7 +478,6 @@ class _LatestCryEventCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               // ── Icon pill ──────────────────────────────
-
               Container(
                 width: 44,
                 height: 44,
@@ -404,7 +496,6 @@ class _LatestCryEventCard extends StatelessWidget {
               const SizedBox(width: 12),
 
               // ── Title + timestamp ──────────────────────
-
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -434,7 +525,6 @@ class _LatestCryEventCard extends StatelessWidget {
           const SizedBox(height: 10),
 
           // ── Classification details ─────────────────
-
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
@@ -518,9 +608,7 @@ class _StatTile extends StatelessWidget {
   });
 
   final String value;
-
   final String label;
-
   final Color? valueColor;
 
   @override
@@ -565,18 +653,13 @@ class _StatTile extends StatelessWidget {
 // ── Environment sensors (Temperature & Humidity) ─────────────────
 
 ///
-
 /// Displays two side-by-side cards showing room temperature and
-
 /// humidity. Values are **mocked** until the hardware is connected.
-
 class _EnvironmentRow extends StatelessWidget {
   const _EnvironmentRow();
 
   /// 🔧 MOCK — replace with real sensor data when hardware is ready.
-
   static const double _temperature = 24;
-
   static const int _humidity = 45;
 
   @override
@@ -586,19 +669,13 @@ class _EnvironmentRow extends StatelessWidget {
         Expanded(
           child: _EnvCard(
             icon: Icons.thermostat_rounded,
-
             label: 'درجة الحرارة',
-
             value: _temperature.toStringAsFixed(0),
-
             unit: '°م',
-
             // Comfortable range: 18–26 °C → green tint; outside → warm alert
-
             accentColor: (_temperature >= 18 && _temperature <= 26)
                 ? AppColors.success
                 : AppColors.alert,
-
             iconBgColor: const Color(0xFFFDEADF),
           ),
         ),
@@ -629,15 +706,10 @@ class _EnvCard extends StatelessWidget {
   });
 
   final IconData icon;
-
   final String label;
-
   final String value;
-
   final String unit;
-
   final Color accentColor;
-
   final Color iconBgColor;
 
   @override
@@ -659,7 +731,6 @@ class _EnvCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           // ── Icon pill ──────────────────────────────
-
           Container(
             width: 44,
             height: 44,
@@ -674,14 +745,12 @@ class _EnvCard extends StatelessWidget {
           const SizedBox(width: 12),
 
           // ── Value + label ──────────────────────────
-
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 // Numeric value
-
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.baseline,
                   textBaseline: TextBaseline.alphabetic,
@@ -709,7 +778,6 @@ class _EnvCard extends StatelessWidget {
                 const SizedBox(height: 3),
 
                 // Arabic label
-
                 Text(
                   label,
                   style: AppTextStyles.featureDesc.copyWith(
@@ -723,7 +791,6 @@ class _EnvCard extends StatelessWidget {
                 const SizedBox(height: 4),
 
                 // Status chip
-
                 Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -785,7 +852,9 @@ class _UpcomingCalendarCard extends StatelessWidget {
               color: AppColors.primary,
             ),
           ),
+
           const SizedBox(width: 12),
+
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -817,6 +886,7 @@ class _UpcomingCalendarCard extends StatelessWidget {
               ],
             ),
           ),
+
           InkWell(
             borderRadius: BorderRadius.circular(8),
             onTap: () {
@@ -883,7 +953,9 @@ class _ChildDevelopmentCard extends StatelessWidget {
               color: AppColors.primary,
             ),
           ),
+
           const SizedBox(width: 12),
+
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -907,6 +979,7 @@ class _ChildDevelopmentCard extends StatelessWidget {
               ],
             ),
           ),
+
           InkWell(
             borderRadius: BorderRadius.circular(8),
             onTap: () {
@@ -968,7 +1041,6 @@ class _WhiteNoiseCardState extends State<_WhiteNoiseCard> {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           // ── Icon pill ──────────────────────────────
-
           Container(
             width: 44,
             height: 44,
@@ -990,7 +1062,6 @@ class _WhiteNoiseCardState extends State<_WhiteNoiseCard> {
           const SizedBox(width: 12),
 
           // ── Title + status subtitle ────────────────
-
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1018,7 +1089,6 @@ class _WhiteNoiseCardState extends State<_WhiteNoiseCard> {
           ),
 
           // ── Toggle Switch ──────────────────────────
-
           Switch(
             value: _isWhiteNoiseOn,
             onChanged: (value) {
@@ -1077,9 +1147,7 @@ class _PrivacyNote extends StatelessWidget {
 }
 
 // ────────────────────────────────────────────────────────────────
-
 //  Bottom Navigation Bar
-
 // ────────────────────────────────────────────────────────────────
 
 class _MahdBottomNav extends StatelessWidget {
@@ -1089,7 +1157,6 @@ class _MahdBottomNav extends StatelessWidget {
   });
 
   final int currentIndex;
-
   final ValueChanged<int> onTap;
 
   static const _items = [
@@ -1136,10 +1203,12 @@ class _MahdBottomNav extends StatelessWidget {
 }
 
 class _NavItem {
-  const _NavItem({required this.icon, required this.label});
+  const _NavItem({
+    required this.icon,
+    required this.label,
+  });
 
   final IconData icon;
-
   final String label;
 }
 
@@ -1151,14 +1220,13 @@ class _NavTile extends StatelessWidget {
   });
 
   final _NavItem item;
-
   final bool isSelected;
-
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final color = isSelected ? AppColors.primary : AppColors.textSecondary;
+    final color =
+        isSelected ? AppColors.primary : AppColors.textSecondary;
 
     return Expanded(
       child: GestureDetector(
@@ -1169,14 +1237,21 @@ class _NavTile extends StatelessWidget {
           children: [
             AnimatedContainer(
               duration: const Duration(milliseconds: 200),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 6,
+              ),
               decoration: isSelected
                   ? BoxDecoration(
                       color: AppColors.iconBg,
                       borderRadius: BorderRadius.circular(12),
                     )
                   : null,
-              child: Icon(item.icon, color: color, size: 22),
+              child: Icon(
+                item.icon,
+                color: color,
+                size: 22,
+              ),
             ),
             const SizedBox(height: 2),
             Text(
@@ -1184,7 +1259,8 @@ class _NavTile extends StatelessWidget {
               style: AppTextStyles.helperText.copyWith(
                 fontSize: 10.5,
                 color: color,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                fontWeight:
+                    isSelected ? FontWeight.w600 : FontWeight.w400,
               ),
             ),
           ],

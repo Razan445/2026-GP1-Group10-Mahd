@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../core/theme/app_theme.dart';
 import '../account/account_screen.dart';
 import '../notifications/notifications_screen.dart';
@@ -129,16 +130,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                     ),
                   ),
-
                   const SizedBox(width: 12),
-
                   Expanded(
                     child: ElevatedButton(
                       onPressed: () {
                         Navigator.of(dialogContext).pop();
 
-                        // TODO:
-                        // Firebase Auth signOut will be connected later.
+                        Navigator.of(
+                          context,
+                          rootNavigator: true,
+                        ).pushNamedAndRemoveUntil(
+                          '/',
+                          (route) => false,
+                        );
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.alert,
@@ -262,9 +266,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             fontWeight: FontWeight.w600,
                           ),
                         ),
-
                         const SizedBox(height: 2),
-
                         Text(
                           'sara@example.com',
                           textDirection: TextDirection.ltr,
@@ -405,7 +407,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             // ─────────────────────────────────────────────
             Center(
               child: Text(
-                'مَهد • مشروع تخرج • جامعة الملك سعود',
+                'مَهد',
                 style: AppTextStyles.helperText.copyWith(
                   fontSize: 9.5,
                 ),
@@ -421,6 +423,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 // ────────────────────────────────────────────────────────────────
 // Settings row
 // ────────────────────────────────────────────────────────────────
+
 class _SettingsRow extends StatelessWidget {
   const _SettingsRow({
     required this.icon,
@@ -494,6 +497,7 @@ class _SettingsRow extends StatelessWidget {
 // ────────────────────────────────────────────────────────────────
 // Divider between rows
 // ────────────────────────────────────────────────────────────────
+
 class _SettingsDivider extends StatelessWidget {
   const _SettingsDivider();
 

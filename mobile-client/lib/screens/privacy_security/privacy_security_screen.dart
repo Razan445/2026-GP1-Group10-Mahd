@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../core/theme/app_theme.dart';
 
 class PrivacySecurityScreen extends StatefulWidget {
@@ -16,29 +17,6 @@ class PrivacySecurityScreen extends StatefulWidget {
 
 class _PrivacySecurityScreenState
     extends State<PrivacySecurityScreen> {
-  String _lastCheck = 'اليوم 9:12 ص';
-
-  void _verifyAudioPrivacy() {
-    final now = TimeOfDay.now();
-    final hour = now.hourOfPeriod == 0 ? 12 : now.hourOfPeriod;
-    final minute = now.minute.toString().padLeft(2, '0');
-    final period = now.period == DayPeriod.am ? 'ص' : 'م';
-
-    setState(() {
-      _lastCheck = 'الآن $hour:$minute $period';
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'تم التحقق — لم يُرفع أي تسجيل صوتي',
-          textDirection: TextDirection.rtl,
-        ),
-        backgroundColor: AppColors.success,
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return SafeArea(
@@ -60,7 +38,9 @@ class _PrivacySecurityScreenState
                 _BackButton(
                   onTap: widget.onBack,
                 ),
+
                 const Spacer(),
+
                 Text(
                   'الخصوصية والأمان',
                   style: AppTextStyles.screenTitle.copyWith(
@@ -155,130 +135,19 @@ class _PrivacySecurityScreenState
                     text:
                         'لا يُحفظ أي تسجيل صوتي على الجهاز أو بعد انتهاء الجلسة',
                   ),
+
                   _Divider(),
+
                   _PrivacyCheckRow(
                     text:
                         'تُرسل النتائج وأوقاتها فقط إلى تطبيقك',
                   ),
+
                   _Divider(),
+
                   _PrivacyCheckRow(
                     text:
                         'بياناتك مرتبطة بحسابك وحده والاتصال مشفّر',
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 12),
-
-            // ─────────────────────────────────────────────
-            // Verification card
-            // ─────────────────────────────────────────────
-            Container(
-              padding: const EdgeInsets.fromLTRB(
-                16,
-                17,
-                16,
-                16,
-              ),
-              decoration: BoxDecoration(
-                color: AppColors.cardSurface,
-                borderRadius: BorderRadius.circular(22),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color(0x08785037),
-                    blurRadius: 12,
-                    offset: Offset(0, 3),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    'التحقق من عدم رفع أي صوت',
-                    style: AppTextStyles.cardTitle.copyWith(
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-
-                  const SizedBox(height: 4),
-
-                  Text(
-                    'يمكنك التحقق في أي وقت من داخل التطبيق.',
-                    style: AppTextStyles.helperText.copyWith(
-                      fontSize: 10,
-                    ),
-                  ),
-
-                  const SizedBox(height: 13),
-
-                  Container(
-                    constraints: const BoxConstraints(
-                      minHeight: 53,
-                    ),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 13,
-                      vertical: 10,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.successBg,
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 8,
-                          height: 8,
-                          decoration: const BoxDecoration(
-                            color: AppColors.success,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-
-                        const SizedBox(width: 9),
-
-                        Expanded(
-                          child: Text(
-                            'آخر تحقق: $_lastCheck — لم يُرفع أي تسجيل صوتي',
-                            style:
-                                AppTextStyles.helperText.copyWith(
-                              fontSize: 10,
-                              color: AppColors.textHelper,
-                              height: 1.6,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 10),
-
-                  SizedBox(
-                    height: 47,
-                    child: OutlinedButton(
-                      onPressed: _verifyAudioPrivacy,
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.textPrimary,
-                        backgroundColor: AppColors.cardSurface,
-                        side: const BorderSide(
-                          color: AppColors.borderBeige,
-                          width: 1,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                      ),
-                      child: Text(
-                        'التحقق الآن',
-                        style: AppTextStyles.buttonTextDark.copyWith(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
                   ),
                 ],
               ),
@@ -311,7 +180,9 @@ class _PrivacySecurityScreenState
                         'إنهاء الجلسة تلقائيًا عند عدم الاستخدام',
                     value: 'مُفعّل',
                   ),
+
                   _Divider(),
+
                   _SessionRow(
                     title: 'الأجهزة المسجلة الدخول',
                     value: 'جهاز واحد',
@@ -329,6 +200,7 @@ class _PrivacySecurityScreenState
 // ────────────────────────────────────────────────────────────────
 // Privacy checklist row
 // ────────────────────────────────────────────────────────────────
+
 class _PrivacyCheckRow extends StatelessWidget {
   const _PrivacyCheckRow({
     required this.text,
@@ -371,6 +243,7 @@ class _PrivacyCheckRow extends StatelessWidget {
 // ────────────────────────────────────────────────────────────────
 // Session row
 // ────────────────────────────────────────────────────────────────
+
 class _SessionRow extends StatelessWidget {
   const _SessionRow({
     required this.title,
@@ -416,6 +289,7 @@ class _SessionRow extends StatelessWidget {
 // ────────────────────────────────────────────────────────────────
 // Divider
 // ────────────────────────────────────────────────────────────────
+
 class _Divider extends StatelessWidget {
   const _Divider();
 
@@ -432,6 +306,7 @@ class _Divider extends StatelessWidget {
 // ────────────────────────────────────────────────────────────────
 // Back button
 // ────────────────────────────────────────────────────────────────
+
 class _BackButton extends StatelessWidget {
   const _BackButton({
     required this.onTap,

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../core/theme/app_theme.dart';
 
+import '../../core/theme/app_theme.dart';
 
 class CalendarScreen extends StatefulWidget {
   const CalendarScreen({super.key});
@@ -17,13 +17,13 @@ class _CalendarScreenState extends State<CalendarScreen> {
     _Appointment(
       title: 'موعد تطعيم',
       date: DateTime(2026, 10, 5),
-      time: '10:30 ص',
+      time: const TimeOfDay(hour: 10, minute: 30),
       icon: Icons.vaccines_outlined,
     ),
     _Appointment(
       title: 'موعد متابعة',
       date: DateTime(2026, 10, 18),
-      time: '4:00 م',
+      time: const TimeOfDay(hour: 16, minute: 0),
       icon: Icons.medical_services_outlined,
     ),
   ];
@@ -94,7 +94,346 @@ class _CalendarScreenState extends State<CalendarScreen> {
               appointment.date.month == _visibleMonth.month,
         )
         .toList()
-      ..sort((a, b) => a.date.compareTo(b.date));
+      ..sort((a, b) {
+        final dateComparison = a.date.compareTo(b.date);
+
+        if (dateComparison != 0) {
+          return dateComparison;
+        }
+
+        final aMinutes = a.time.hour * 60 + a.time.minute;
+        final bMinutes = b.time.hour * 60 + b.time.minute;
+
+        return aMinutes.compareTo(bMinutes);
+      });
+  }
+
+  Future<void> _showAppointmentDialog({
+    _Appointment? appointment,
+  }) async {
+    final titleController = TextEditingController(
+      text: appointment?.title ?? '',
+    );
+
+    DateTime selectedDate =
+        appointment?.date ??
+        _selectedDate ??
+        DateTime(
+          _visibleMonth.year,
+          _visibleMonth.month,
+          1,
+        );
+
+    TimeOfDay selectedTime =
+        appointment?.time ?? TimeOfDay.now();
+
+    bool showTitleError = false;
+
+    final shouldSave = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return Directionality(
+          textDirection: TextDirection.rtl,
+          child: StatefulBuilder(
+            builder: (context, setDialogState) {
+              return AlertDialog(
+                backgroundColor: AppColors.cardSurface,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                title: Text(
+                  appointment == null
+                      ? 'إضافة موعد'
+                      : 'تعديل الموعد',
+                  style: AppTextStyles.cardTitle.copyWith(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                content: SizedBox(
+                  width: 360,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      TextField(
+                        controller: titleController,
+                        textDirection: TextDirection.rtl,
+                        decoration: InputDecoration(
+                          labelText: 'اسم الموعد',
+                          hintText: 'مثال: موعد تطعيم',
+                          errorText: showTitleError
+                              ? 'اكتبي اسم الموعد'
+                              : null,
+                          filled: true,
+                          fillColor: AppColors.backgroundCream,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: BorderSide(
+                              color: AppColors.borderLight,
+                            ),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: BorderSide(
+                              color: AppColors.borderLight,
+                            ),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: const BorderSide(
+                              color: AppColors.primary,
+                            ),
+                          ),
+                        ),
+                        onChanged: (_) {
+                          if (showTitleError) {
+                            setDialogState(() {
+                              showTitleError = false;
+                            });
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      _DialogPickerTile(
+                        icon: Icons.calendar_month_outlined,
+                        label: 'التاريخ',
+                        value: _formatDate(selectedDate),
+                        onTap: () async {
+                          final pickedDate =
+                              await showDatePicker(
+                                context: context,
+                                initialDate: selectedDate,
+                                firstDate: DateTime(2020),
+                                lastDate: DateTime(2035),
+                              );
+
+                          if (pickedDate != null) {
+                            setDialogState(() {
+                              selectedDate = pickedDate;
+                            });
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      _DialogPickerTile(
+                        icon: Icons.access_time_rounded,
+                        label: 'الوقت',
+                        value: _formatTime(selectedTime),
+                        onTap: () async {
+                          final pickedTime =
+                              await showTimePicker(
+                                context: context,
+                                initialTime: selectedTime,
+                              );
+
+                          if (pickedTime != null) {
+                            setDialogState(() {
+                              selectedTime = pickedTime;
+                            });
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () {
+                      Navigator.of(dialogContext).pop(false);
+                    },
+                    child: Text(
+                      'إلغاء',
+                      style: AppTextStyles.featureDesc.copyWith(
+                        color: AppColors.textSecondary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      if (titleController.text.trim().isEmpty) {
+                        setDialogState(() {
+                          showTitleError = true;
+                        });
+
+                        return;
+                      }
+
+                      Navigator.of(dialogContext).pop(true);
+                    },
+                    child: Text(
+                      appointment == null ? 'إضافة' : 'حفظ',
+                      style: AppTextStyles.featureDesc.copyWith(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        );
+      },
+    );
+
+    if (shouldSave != true || !mounted) {
+      titleController.dispose();
+      return;
+    }
+
+    final updatedAppointment = _Appointment(
+      title: titleController.text.trim(),
+      date: DateTime(
+        selectedDate.year,
+        selectedDate.month,
+        selectedDate.day,
+      ),
+      time: selectedTime,
+      icon:
+          appointment?.icon ??
+          Icons.event_note_outlined,
+    );
+
+    setState(() {
+      if (appointment == null) {
+        _appointments.add(updatedAppointment);
+      } else {
+        final appointmentIndex =
+            _appointments.indexOf(appointment);
+
+        if (appointmentIndex != -1) {
+          _appointments[appointmentIndex] =
+              updatedAppointment;
+        }
+      }
+
+      _visibleMonth = DateTime(
+        selectedDate.year,
+        selectedDate.month,
+        1,
+      );
+
+      _selectedDate = DateTime(
+        selectedDate.year,
+        selectedDate.month,
+        selectedDate.day,
+      );
+    });
+
+    titleController.dispose();
+
+    if (!mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          appointment == null
+              ? 'تمت إضافة الموعد'
+              : 'تم تعديل الموعد',
+          textDirection: TextDirection.rtl,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _deleteAppointment(
+    _Appointment appointment,
+  ) async {
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return Directionality(
+          textDirection: TextDirection.rtl,
+          child: AlertDialog(
+            backgroundColor: AppColors.cardSurface,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(24),
+            ),
+            title: Text(
+              'حذف الموعد',
+              style: AppTextStyles.cardTitle.copyWith(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            content: Text(
+              'هل أنت متأكدة من حذف "${appointment.title}"؟',
+              style: AppTextStyles.featureDesc.copyWith(
+                fontSize: 13,
+                color: AppColors.textSecondary,
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(dialogContext).pop(false);
+                },
+                child: Text(
+                  'إلغاء',
+                  style: AppTextStyles.featureDesc.copyWith(
+                    color: AppColors.textSecondary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.of(dialogContext).pop(true);
+                },
+                child: Text(
+                  'حذف',
+                  style: AppTextStyles.featureDesc.copyWith(
+                    color: AppColors.alert,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+
+    if (shouldDelete != true || !mounted) {
+      return;
+    }
+
+    setState(() {
+      _appointments.remove(appointment);
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'تم حذف الموعد',
+          textDirection: TextDirection.rtl,
+        ),
+      ),
+    );
+  }
+
+  String _formatDate(DateTime date) {
+    final monthName = _arabicMonths[date.month - 1];
+
+    return '${date.day} $monthName ${date.year}';
+  }
+
+  String _formatTime(TimeOfDay time) {
+    final period = time.hour < 12 ? 'ص' : 'م';
+
+    int hour = time.hour % 12;
+
+    if (hour == 0) {
+      hour = 12;
+    }
+
+    final minute = time.minute.toString().padLeft(2, '0');
+
+    return '$hour:$minute $period';
   }
 
   @override
@@ -126,12 +465,35 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
                 const SizedBox(height: 26),
 
-                Text(
-                  'المواعيد القادمة',
-                  style: AppTextStyles.cardTitle.copyWith(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                  ),
+                Row(
+                  children: [
+                    Text(
+                      'المواعيد القادمة',
+                      style: AppTextStyles.cardTitle.copyWith(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const Spacer(),
+                    TextButton.icon(
+                      onPressed: () {
+                        _showAppointmentDialog();
+                      },
+                      icon: const Icon(
+                        Icons.add_rounded,
+                        size: 20,
+                        color: AppColors.primary,
+                      ),
+                      label: Text(
+                        'إضافة',
+                        style: AppTextStyles.featureDesc.copyWith(
+                          fontSize: 12,
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
 
                 const SizedBox(height: 12),
@@ -141,12 +503,21 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 else
                   ..._appointmentsForVisibleMonth.map(
                     (appointment) => Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
+                      padding:
+                          const EdgeInsets.only(bottom: 12),
                       child: _AppointmentCard(
                         icon: appointment.icon,
                         title: appointment.title,
                         date: _formatDate(appointment.date),
-                        time: appointment.time,
+                        time: _formatTime(appointment.time),
+                        onEdit: () {
+                          _showAppointmentDialog(
+                            appointment: appointment,
+                          );
+                        },
+                        onDelete: () {
+                          _deleteAppointment(appointment);
+                        },
                       ),
                     ),
                   ),
@@ -156,12 +527,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
         ),
       ),
     );
-  }
-
-  String _formatDate(DateTime date) {
-    final monthName = _arabicMonths[date.month - 1];
-
-    return '${date.day} $monthName ${date.year}';
   }
 }
 
@@ -207,6 +572,7 @@ class _CalendarHeader extends StatelessWidget {
     );
   }
 }
+
 // ── Monthly calendar ──────────────────────────────────────────────
 
 class _MonthCard extends StatelessWidget {
@@ -271,7 +637,8 @@ class _MonthCard extends StatelessWidget {
       child: Column(
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            mainAxisAlignment:
+                MainAxisAlignment.spaceBetween,
             children: [
               _MonthArrow(
                 icon: Icons.chevron_right_rounded,
@@ -302,7 +669,8 @@ class _MonthCard extends StatelessWidget {
                     child: Center(
                       child: Text(
                         day,
-                        style: AppTextStyles.featureDesc.copyWith(
+                        style:
+                            AppTextStyles.featureDesc.copyWith(
                           fontSize: 10.5,
                           color: AppColors.textSecondary,
                           fontWeight: FontWeight.w600,
@@ -318,8 +686,10 @@ class _MonthCard extends StatelessWidget {
 
           GridView.builder(
             shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: leadingEmptyCells + numberOfDays,
+            physics:
+                const NeverScrollableScrollPhysics(),
+            itemCount:
+                leadingEmptyCells + numberOfDays,
             gridDelegate:
                 const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 7,
@@ -331,12 +701,15 @@ class _MonthCard extends StatelessWidget {
                 return const SizedBox.shrink();
               }
 
-              final day = index - leadingEmptyCells + 1;
+              final day =
+                  index - leadingEmptyCells + 1;
 
               final isSelected =
                   selectedDate != null &&
-                  selectedDate!.year == visibleMonth.year &&
-                  selectedDate!.month == visibleMonth.month &&
+                  selectedDate!.year ==
+                      visibleMonth.year &&
+                  selectedDate!.month ==
+                      visibleMonth.month &&
                   selectedDate!.day == day;
 
               return _CalendarDay(
@@ -408,8 +781,9 @@ class _CalendarDay extends StatelessWidget {
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          color:
-              isSelected ? AppColors.primary : Colors.transparent,
+          color: isSelected
+              ? AppColors.primary
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
         ),
         child: Stack(
@@ -452,7 +826,7 @@ class _CalendarDay extends StatelessWidget {
 class _Appointment {
   final String title;
   final DateTime date;
-  final String time;
+  final TimeOfDay time;
   final IconData icon;
 
   const _Appointment({
@@ -470,12 +844,16 @@ class _AppointmentCard extends StatelessWidget {
   final String title;
   final String date;
   final String time;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
 
   const _AppointmentCard({
     required this.icon,
     required this.title,
     required this.date,
     required this.time,
+    required this.onEdit,
+    required this.onDelete,
   });
 
   @override
@@ -517,7 +895,8 @@ class _AppointmentCard extends StatelessWidget {
 
           Expanded(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
               children: [
                 Text(
                   title,
@@ -531,7 +910,8 @@ class _AppointmentCard extends StatelessWidget {
 
                 Text(
                   '$date • $time',
-                  style: AppTextStyles.featureDesc.copyWith(
+                  style:
+                      AppTextStyles.featureDesc.copyWith(
                     fontSize: 11,
                     color: AppColors.textSecondary,
                   ),
@@ -539,7 +919,157 @@ class _AppointmentCard extends StatelessWidget {
               ],
             ),
           ),
+
+          PopupMenuButton<String>(
+            tooltip: '',
+            icon: const Icon(
+              Icons.more_vert_rounded,
+              color: AppColors.textSecondary,
+              size: 22,
+            ),
+            color: AppColors.cardSurface,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
+            onSelected: (value) {
+              if (value == 'edit') {
+                onEdit();
+              } else if (value == 'delete') {
+                onDelete();
+              }
+            },
+            itemBuilder: (context) => [
+              PopupMenuItem<String>(
+                value: 'edit',
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.edit_outlined,
+                      size: 19,
+                      color: AppColors.primary,
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      'تعديل',
+                      style:
+                          AppTextStyles.featureDesc.copyWith(
+                        fontSize: 12,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              PopupMenuItem<String>(
+                value: 'delete',
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.delete_outline_rounded,
+                      size: 19,
+                      color: AppColors.alert,
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      'حذف',
+                      style:
+                          AppTextStyles.featureDesc.copyWith(
+                        fontSize: 12,
+                        color: AppColors.alert,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ],
+      ),
+    );
+  }
+}
+
+// ── Appointment dialog picker ─────────────────────────────────────
+
+class _DialogPickerTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final VoidCallback onTap;
+
+  const _DialogPickerTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(14),
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 12,
+        ),
+        decoration: BoxDecoration(
+          color: AppColors.backgroundCream,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: AppColors.borderLight,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: AppColors.iconBg,
+                borderRadius: BorderRadius.circular(11),
+              ),
+              child: Icon(
+                icon,
+                size: 19,
+                color: AppColors.primary,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment:
+                    CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style:
+                        AppTextStyles.featureDesc.copyWith(
+                      fontSize: 10.5,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    value,
+                    style:
+                        AppTextStyles.cardTitle.copyWith(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(
+              Icons.chevron_left_rounded,
+              color: AppColors.textSecondary,
+              size: 20,
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../core/theme/app_theme.dart';
 
 class ChildDevelopmentScreen extends StatefulWidget {
@@ -9,10 +10,17 @@ class ChildDevelopmentScreen extends StatefulWidget {
       _ChildDevelopmentScreenState();
 }
 
-class _ChildDevelopmentScreenState extends State<ChildDevelopmentScreen> {
-  final TextEditingController _heightController = TextEditingController();
-  final TextEditingController _weightController = TextEditingController();
-  final TextEditingController _headController = TextEditingController();
+class _ChildDevelopmentScreenState
+    extends State<ChildDevelopmentScreen> {
+  final TextEditingController _heightController =
+      TextEditingController();
+  final TextEditingController _weightController =
+      TextEditingController();
+  final TextEditingController _headController =
+      TextEditingController();
+
+  bool _hasSavedMeasurements = false;
+  bool _isEditingMeasurements = true;
 
   @override
   void dispose() {
@@ -41,14 +49,29 @@ class _ChildDevelopmentScreenState extends State<ChildDevelopmentScreen> {
       return;
     }
 
+    final wasAlreadySaved = _hasSavedMeasurements;
+
+    setState(() {
+      _hasSavedMeasurements = true;
+      _isEditingMeasurements = false;
+    });
+
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
+      SnackBar(
         content: Text(
-          'تم حفظ القياسات بنجاح',
+          wasAlreadySaved
+              ? 'تم تعديل القياسات بنجاح'
+              : 'تم حفظ القياسات بنجاح',
           textDirection: TextDirection.rtl,
         ),
       ),
     );
+  }
+
+  void _editMeasurements() {
+    setState(() {
+      _isEditingMeasurements = true;
+    });
   }
 
   @override
@@ -75,7 +98,10 @@ class _ChildDevelopmentScreenState extends State<ChildDevelopmentScreen> {
                   heightController: _heightController,
                   weightController: _weightController,
                   headController: _headController,
+                  hasSavedMeasurements: _hasSavedMeasurements,
+                  isEditing: _isEditingMeasurements,
                   onSave: _saveMeasurements,
+                  onEdit: _editMeasurements,
                 ),
 
                 const SizedBox(height: 22),
@@ -246,13 +272,21 @@ class _MeasurementsCard extends StatelessWidget {
   final TextEditingController heightController;
   final TextEditingController weightController;
   final TextEditingController headController;
+
+  final bool hasSavedMeasurements;
+  final bool isEditing;
+
   final VoidCallback onSave;
+  final VoidCallback onEdit;
 
   const _MeasurementsCard({
     required this.heightController,
     required this.weightController,
     required this.headController,
+    required this.hasSavedMeasurements,
+    required this.isEditing,
     required this.onSave,
+    required this.onEdit,
   });
 
   @override
@@ -307,7 +341,9 @@ class _MeasurementsCard extends StatelessWidget {
                     const SizedBox(height: 3),
 
                     Text(
-                      'أدخلي أحدث قياسات الطفل',
+                      hasSavedMeasurements && !isEditing
+                          ? 'آخر قياسات الطفل المحفوظة'
+                          : 'أدخلي أحدث قياسات الطفل',
                       style: AppTextStyles.featureDesc.copyWith(
                         fontSize: 10.5,
                         color: AppColors.textSecondary,
@@ -327,6 +363,7 @@ class _MeasurementsCard extends StatelessWidget {
             hint: 'مثال: 60',
             unit: 'سم',
             icon: Icons.height_rounded,
+            readOnly: !isEditing,
           ),
 
           const SizedBox(height: 12),
@@ -337,6 +374,7 @@ class _MeasurementsCard extends StatelessWidget {
             hint: 'مثال: 5.8',
             unit: 'كجم',
             icon: Icons.monitor_weight_outlined,
+            readOnly: !isEditing,
           ),
 
           const SizedBox(height: 12),
@@ -347,6 +385,7 @@ class _MeasurementsCard extends StatelessWidget {
             hint: 'مثال: 40',
             unit: 'سم',
             icon: Icons.circle_outlined,
+            readOnly: !isEditing,
           ),
 
           const SizedBox(height: 18),
@@ -355,7 +394,10 @@ class _MeasurementsCard extends StatelessWidget {
             width: double.infinity,
             height: 48,
             child: ElevatedButton(
-              onPressed: onSave,
+              onPressed:
+                  hasSavedMeasurements && !isEditing
+                      ? onEdit
+                      : onSave,
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
                 foregroundColor: Colors.white,
@@ -364,9 +406,13 @@ class _MeasurementsCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(16),
                 ),
               ),
-              child: const Text(
-                'حفظ القياسات',
-                style: TextStyle(
+              child: Text(
+                hasSavedMeasurements && !isEditing
+                    ? 'تعديل القياسات'
+                    : hasSavedMeasurements
+                        ? 'حفظ التعديلات'
+                        : 'حفظ القياسات',
+                style: const TextStyle(
                   fontFamily: 'IBMPlexSansArabic',
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
@@ -386,6 +432,7 @@ class _MeasurementField extends StatelessWidget {
   final String hint;
   final String unit;
   final IconData icon;
+  final bool readOnly;
 
   const _MeasurementField({
     required this.controller,
@@ -393,12 +440,14 @@ class _MeasurementField extends StatelessWidget {
     required this.hint,
     required this.unit,
     required this.icon,
+    required this.readOnly,
   });
 
   @override
   Widget build(BuildContext context) {
     return TextField(
       controller: controller,
+      readOnly: readOnly,
       keyboardType: const TextInputType.numberWithOptions(
         decimal: true,
       ),
