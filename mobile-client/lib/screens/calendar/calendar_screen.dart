@@ -1,6 +1,11 @@
+import 'dart:async';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../services/firestore_service.dart';
 
 class CalendarScreen extends StatefulWidget {
   const CalendarScreen({super.key});
@@ -13,20 +18,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
   DateTime _visibleMonth = DateTime(2026, 10, 1);
   DateTime? _selectedDate = DateTime(2026, 10, 5);
 
-  final List<_Appointment> _appointments = [
-    _Appointment(
-      title: 'موعد تطعيم',
-      date: DateTime(2026, 10, 5),
-      time: const TimeOfDay(hour: 10, minute: 30),
-      icon: Icons.vaccines_outlined,
-    ),
-    _Appointment(
-      title: 'موعد متابعة',
-      date: DateTime(2026, 10, 18),
-      time: const TimeOfDay(hour: 16, minute: 0),
-      icon: Icons.medical_services_outlined,
-    ),
-  ];
+  final List<_Appointment> _appointments = [];
+
+  StreamSubscription<User?>? _authSubscription;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>?
+      _remindersSubscription;
 
   static const List<String> _arabicMonths = [
     'يناير',
@@ -42,6 +38,121 @@ class _CalendarScreenState extends State<CalendarScreen> {
     'نوفمبر',
     'ديسمبر',
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _listenToAuthentication();
+  }
+
+  @override
+  void dispose() {
+    _authSubscription?.cancel();
+    _remindersSubscription?.cancel();
+    super.dispose();
+  }
+
+  void _listenToAuthentication() {
+    _authSubscription =
+        FirebaseAuth.instance.authStateChanges().listen(
+      (user) {
+        _remindersSubscription?.cancel();
+
+        if (user == null) {
+          if (!mounted) return;
+
+          setState(() {
+            _appointments.clear();
+          });
+
+          return;
+        }
+
+        _listenToReminders();
+      },
+    );
+  }
+
+  void _listenToReminders() {
+    _remindersSubscription =
+        FirestoreService.instance.watchReminders().listen(
+      (snapshot) {
+        final loadedAppointments = <_Appointment>[];
+
+        for (final document in snapshot.docs) {
+          final data = document.data();
+          final dateTimeValue = data['dateTime'];
+
+          if (dateTimeValue is! Timestamp) {
+            continue;
+          }
+
+          final dateTime = dateTimeValue.toDate();
+
+          final type =
+              (data['type'] as String?) ?? 'other';
+
+          loadedAppointments.add(
+            _Appointment(
+              reminderId: document.id,
+              title: (data['title'] as String?) ?? '',
+              type: type,
+              status: (data['status'] as String?) ?? 'active',
+              date: DateTime(
+                dateTime.year,
+                dateTime.month,
+                dateTime.day,
+              ),
+              time: TimeOfDay(
+                hour: dateTime.hour,
+                minute: dateTime.minute,
+              ),
+              icon: _iconForType(type),
+            ),
+          );
+        }
+
+        if (!mounted) {
+          return;
+        }
+
+        setState(() {
+          _appointments
+            ..clear()
+            ..addAll(loadedAppointments);
+        });
+      },
+      onError: (Object error) {
+        debugPrint('Error loading reminders: $error');
+      },
+    );
+  }
+
+  String _typeLabel(String type) {
+    switch (type) {
+      case 'vaccination':
+        return 'تطعيم';
+      case 'medical':
+        return 'موعد طبي';
+      case 'care':
+        return 'رعاية';
+      default:
+        return 'أخرى';
+    }
+  }
+
+  IconData _iconForType(String type) {
+    switch (type) {
+      case 'vaccination':
+        return Icons.vaccines_outlined;
+      case 'medical':
+        return Icons.medical_services_outlined;
+      case 'care':
+        return Icons.child_care_rounded;
+      default:
+        return Icons.event_note_outlined;
+    }
+  }
 
   void _previousMonth() {
     setState(() {
@@ -127,6 +238,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
     TimeOfDay selectedTime =
         appointment?.time ?? TimeOfDay.now();
 
+    String selectedType =
+        appointment?.type ?? 'medical';
+
     bool showTitleError = false;
 
     final shouldSave = await showDialog<bool>(
@@ -194,7 +308,65 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           }
                         },
                       ),
+
                       const SizedBox(height: 16),
+
+                      DropdownButtonFormField<String>(
+                        initialValue: selectedType,
+                        decoration: InputDecoration(
+                          labelText: 'نوع الموعد',
+                          filled: true,
+                          fillColor: AppColors.backgroundCream,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: BorderSide(
+                              color: AppColors.borderLight,
+                            ),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: BorderSide(
+                              color: AppColors.borderLight,
+                            ),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: const BorderSide(
+                              color: AppColors.primary,
+                            ),
+                          ),
+                        ),
+                        items: const [
+                          DropdownMenuItem(
+                            value: 'vaccination',
+                            child: Text('تطعيم'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'medical',
+                            child: Text('موعد طبي'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'care',
+                            child: Text('رعاية'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'other',
+                            child: Text('أخرى'),
+                          ),
+                        ],
+                        onChanged: (value) {
+                          if (value == null) {
+                            return;
+                          }
+
+                          setDialogState(() {
+                            selectedType = value;
+                          });
+                        },
+                      ),
+
+                      const SizedBox(height: 12),
+
                       _DialogPickerTile(
                         icon: Icons.calendar_month_outlined,
                         label: 'التاريخ',
@@ -202,11 +374,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
                         onTap: () async {
                           final pickedDate =
                               await showDatePicker(
-                                context: context,
-                                initialDate: selectedDate,
-                                firstDate: DateTime(2020),
-                                lastDate: DateTime(2035),
-                              );
+                            context: context,
+                            initialDate: selectedDate,
+                            firstDate: DateTime(2020),
+                            lastDate: DateTime(2035),
+                          );
 
                           if (pickedDate != null) {
                             setDialogState(() {
@@ -215,7 +387,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           }
                         },
                       ),
+
                       const SizedBox(height: 12),
+
                       _DialogPickerTile(
                         icon: Icons.access_time_rounded,
                         label: 'الوقت',
@@ -223,9 +397,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
                         onTap: () async {
                           final pickedTime =
                               await showTimePicker(
-                                context: context,
-                                initialTime: selectedTime,
-                              );
+                            context: context,
+                            initialTime: selectedTime,
+                          );
 
                           if (pickedTime != null) {
                             setDialogState(() {
@@ -283,61 +457,99 @@ class _CalendarScreenState extends State<CalendarScreen> {
       return;
     }
 
-    final updatedAppointment = _Appointment(
-      title: titleController.text.trim(),
-      date: DateTime(
-        selectedDate.year,
-        selectedDate.month,
-        selectedDate.day,
-      ),
-      time: selectedTime,
-      icon:
-          appointment?.icon ??
-          Icons.event_note_outlined,
-    );
-
-    setState(() {
-      if (appointment == null) {
-        _appointments.add(updatedAppointment);
-      } else {
-        final appointmentIndex =
-            _appointments.indexOf(appointment);
-
-        if (appointmentIndex != -1) {
-          _appointments[appointmentIndex] =
-              updatedAppointment;
-        }
-      }
-
-      _visibleMonth = DateTime(
-        selectedDate.year,
-        selectedDate.month,
-        1,
-      );
-
-      _selectedDate = DateTime(
-        selectedDate.year,
-        selectedDate.month,
-        selectedDate.day,
-      );
-    });
+    final title = titleController.text.trim();
 
     titleController.dispose();
 
-    if (!mounted) {
-      return;
-    }
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          appointment == null
-              ? 'تمت إضافة الموعد'
-              : 'تم تعديل الموعد',
-          textDirection: TextDirection.rtl,
-        ),
-      ),
+    final reminderDateTime = DateTime(
+      selectedDate.year,
+      selectedDate.month,
+      selectedDate.day,
+      selectedTime.hour,
+      selectedTime.minute,
     );
+
+    try {
+      if (appointment == null) {
+        await FirestoreService.instance.createReminder(
+          title: title,
+          dateTime: reminderDateTime,
+          type: selectedType,
+          status: 'active',
+        );
+      } else {
+        await FirestoreService.instance.updateReminder(
+          reminderId: appointment.reminderId,
+          title: title,
+          dateTime: reminderDateTime,
+          type: selectedType,
+          status: appointment.status,
+        );
+      }
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _visibleMonth = DateTime(
+          selectedDate.year,
+          selectedDate.month,
+          1,
+        );
+
+        _selectedDate = DateTime(
+          selectedDate.year,
+          selectedDate.month,
+          selectedDate.day,
+        );
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            appointment == null
+                ? 'تمت إضافة الموعد'
+                : 'تم تعديل الموعد',
+            textDirection: TextDirection.rtl,
+          ),
+        ),
+      );
+    } on FirebaseException catch (e) {
+      debugPrint(
+        'Reminder save error: ${e.code} | ${e.message}',
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'حدث خطأ أثناء حفظ الموعد',
+            textDirection: TextDirection.rtl,
+          ),
+          backgroundColor: AppColors.alert,
+        ),
+      );
+    } catch (e) {
+      debugPrint('Reminder save error: $e');
+
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'حدث خطأ أثناء حفظ الموعد',
+            textDirection: TextDirection.rtl,
+          ),
+          backgroundColor: AppColors.alert,
+        ),
+      );
+    }
   }
 
   Future<void> _deleteAppointment(
@@ -402,18 +614,58 @@ class _CalendarScreenState extends State<CalendarScreen> {
       return;
     }
 
-    setState(() {
-      _appointments.remove(appointment);
-    });
+    try {
+      await FirestoreService.instance.deleteReminder(
+        reminderId: appointment.reminderId,
+      );
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'تم حذف الموعد',
-          textDirection: TextDirection.rtl,
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'تم حذف الموعد',
+            textDirection: TextDirection.rtl,
+          ),
         ),
-      ),
-    );
+      );
+    } on FirebaseException catch (e) {
+      debugPrint(
+        'Reminder delete error: ${e.code} | ${e.message}',
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'حدث خطأ أثناء حذف الموعد',
+            textDirection: TextDirection.rtl,
+          ),
+          backgroundColor: AppColors.alert,
+        ),
+      );
+    } catch (e) {
+      debugPrint('Reminder delete error: $e');
+
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'حدث خطأ أثناء حذف الموعد',
+            textDirection: TextDirection.rtl,
+          ),
+          backgroundColor: AppColors.alert,
+        ),
+      );
+    }
   }
 
   String _formatDate(DateTime date) {
@@ -474,7 +726,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
+
                     const Spacer(),
+
                     TextButton.icon(
                       onPressed: () {
                         _showAppointmentDialog();
@@ -508,6 +762,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       child: _AppointmentCard(
                         icon: appointment.icon,
                         title: appointment.title,
+                        typeLabel: _typeLabel(appointment.type),
                         date: _formatDate(appointment.date),
                         time: _formatTime(appointment.time),
                         onEdit: () {
@@ -529,8 +784,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
     );
   }
 }
-
-// ── Header ────────────────────────────────────────────────────────
 
 class _CalendarHeader extends StatelessWidget {
   const _CalendarHeader();
@@ -572,8 +825,6 @@ class _CalendarHeader extends StatelessWidget {
     );
   }
 }
-
-// ── Monthly calendar ──────────────────────────────────────────────
 
 class _MonthCard extends StatelessWidget {
   final DateTime visibleMonth;
@@ -726,8 +977,6 @@ class _MonthCard extends StatelessWidget {
   }
 }
 
-// ── Month arrow ───────────────────────────────────────────────────
-
 class _MonthArrow extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
@@ -758,8 +1007,6 @@ class _MonthArrow extends StatelessWidget {
     );
   }
 }
-
-// ── Calendar day ──────────────────────────────────────────────────
 
 class _CalendarDay extends StatelessWidget {
   final int day;
@@ -821,27 +1068,30 @@ class _CalendarDay extends StatelessWidget {
   }
 }
 
-// ── Appointment data ──────────────────────────────────────────────
-
 class _Appointment {
+  final String reminderId;
   final String title;
+  final String type;
+  final String status;
   final DateTime date;
   final TimeOfDay time;
   final IconData icon;
 
   const _Appointment({
+    required this.reminderId,
     required this.title,
+    required this.type,
+    required this.status,
     required this.date,
     required this.time,
     required this.icon,
   });
 }
 
-// ── Appointment card ──────────────────────────────────────────────
-
 class _AppointmentCard extends StatelessWidget {
   final IconData icon;
   final String title;
+  final String typeLabel;
   final String date;
   final String time;
   final VoidCallback onEdit;
@@ -850,6 +1100,7 @@ class _AppointmentCard extends StatelessWidget {
   const _AppointmentCard({
     required this.icon,
     required this.title,
+    required this.typeLabel,
     required this.date,
     required this.time,
     required this.onEdit,
@@ -906,7 +1157,31 @@ class _AppointmentCard extends StatelessWidget {
                   ),
                 ),
 
-                const SizedBox(height: 4),
+                const SizedBox(height: 5),
+
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 9,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.iconBg,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      typeLabel,
+                      style: AppTextStyles.featureDesc.copyWith(
+                        fontSize: 9.5,
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 5),
 
                 Text(
                   '$date • $time',
@@ -948,7 +1223,9 @@ class _AppointmentCard extends StatelessWidget {
                       size: 19,
                       color: AppColors.primary,
                     ),
+
                     const SizedBox(width: 10),
+
                     Text(
                       'تعديل',
                       style:
@@ -960,6 +1237,7 @@ class _AppointmentCard extends StatelessWidget {
                   ],
                 ),
               ),
+
               PopupMenuItem<String>(
                 value: 'delete',
                 child: Row(
@@ -969,7 +1247,9 @@ class _AppointmentCard extends StatelessWidget {
                       size: 19,
                       color: AppColors.alert,
                     ),
+
                     const SizedBox(width: 10),
+
                     Text(
                       'حذف',
                       style:
@@ -988,8 +1268,6 @@ class _AppointmentCard extends StatelessWidget {
     );
   }
 }
-
-// ── Appointment dialog picker ─────────────────────────────────────
 
 class _DialogPickerTile extends StatelessWidget {
   final IconData icon;
@@ -1037,7 +1315,9 @@ class _DialogPickerTile extends StatelessWidget {
                 color: AppColors.primary,
               ),
             ),
+
             const SizedBox(width: 12),
+
             Expanded(
               child: Column(
                 crossAxisAlignment:
@@ -1051,7 +1331,9 @@ class _DialogPickerTile extends StatelessWidget {
                       color: AppColors.textSecondary,
                     ),
                   ),
+
                   const SizedBox(height: 2),
+
                   Text(
                     value,
                     style:
@@ -1063,6 +1345,7 @@ class _DialogPickerTile extends StatelessWidget {
                 ],
               ),
             ),
+
             const Icon(
               Icons.chevron_left_rounded,
               color: AppColors.textSecondary,
@@ -1074,8 +1357,6 @@ class _DialogPickerTile extends StatelessWidget {
     );
   }
 }
-
-// ── Empty appointments state ──────────────────────────────────────
 
 class _NoAppointmentsCard extends StatelessWidget {
   const _NoAppointmentsCard();

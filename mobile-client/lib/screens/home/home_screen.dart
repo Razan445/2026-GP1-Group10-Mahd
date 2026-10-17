@@ -1,5 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
+import '../../services/audio_monitoring_service.dart';
+import '../../services/firestore_service.dart';
 import '../calendar/calendar_screen.dart';
 import '../child_development/child_development_screen.dart';
 import '../settings/settings_screen.dart';
@@ -29,6 +33,9 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
   bool _hasImportantReminders = true;
+  bool _isMonitoring = false;
+  bool _isMonitoringActionInProgress = false;
+  String? _activeSessionId;
 
   // Greeting based on time-of-day
   String get _greeting {
@@ -37,6 +44,188 @@ class _HomeScreenState extends State<HomeScreen> {
     if (hour < 12) return 'صباح الخير';
     if (hour < 18) return 'مساء الخير';
     return 'مساء الخير';
+  }
+
+  Future<void> _toggleMonitoring() async {
+    if (_isMonitoringActionInProgress) {
+      return;
+    }
+
+    if (_isMonitoring) {
+      await _stopMonitoring();
+    } else {
+      await _startMonitoring();
+    }
+  }
+
+  Future<void> _startMonitoring() async {
+    setState(() {
+      _isMonitoringActionInProgress = true;
+    });
+
+    try {
+      // Start the real microphone stream first.
+      // A Firestore session is created only if microphone startup succeeds.
+      await AudioMonitoringService.instance.startMonitoring();
+
+      final sessionId =
+          await FirestoreService.instance.startSession();
+
+      if (!mounted) {
+        await _cleanupMonitoringOnDispose(sessionId);
+        return;
+      }
+
+      setState(() {
+        _activeSessionId = sessionId;
+        _isMonitoring = true;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'بدأت جلسة المراقبة',
+            textDirection: TextDirection.rtl,
+          ),
+        ),
+      );
+    } on AudioMonitoringPermissionException {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'نحتاج إذن الميكروفون لبدء المراقبة',
+            textDirection: TextDirection.rtl,
+          ),
+          backgroundColor: AppColors.alert,
+        ),
+      );
+    } catch (e) {
+      debugPrint('Monitoring start error: $e');
+
+      if (AudioMonitoringService.instance.isMonitoring) {
+        try {
+          await AudioMonitoringService.instance.stopMonitoring();
+        } catch (stopError) {
+          debugPrint(
+            'Microphone cleanup after start failure: $stopError',
+          );
+        }
+      }
+
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'تعذر بدء المراقبة، حاولي مرة أخرى',
+            textDirection: TextDirection.rtl,
+          ),
+          backgroundColor: AppColors.alert,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isMonitoringActionInProgress = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _stopMonitoring() async {
+    setState(() {
+      _isMonitoringActionInProgress = true;
+    });
+
+    final sessionId = _activeSessionId;
+    Object? microphoneError;
+    Object? sessionError;
+
+    try {
+      await AudioMonitoringService.instance.stopMonitoring();
+    } catch (e) {
+      microphoneError = e;
+      debugPrint('Microphone stop error: $e');
+    }
+
+    if (sessionId != null) {
+      try {
+        await FirestoreService.instance.endSession(
+          sessionId: sessionId,
+        );
+      } catch (e) {
+        sessionError = e;
+        debugPrint('Session end error: $e');
+      }
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _isMonitoring = false;
+      _activeSessionId = null;
+      _isMonitoringActionInProgress = false;
+    });
+
+    if (microphoneError == null && sessionError == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'تم إيقاف جلسة المراقبة',
+            textDirection: TextDirection.rtl,
+          ),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'توقفت المراقبة، لكن تعذر تحديث جزء من بيانات الجلسة',
+            textDirection: TextDirection.rtl,
+          ),
+          backgroundColor: AppColors.alert,
+        ),
+      );
+    }
+  }
+
+  Future<void> _cleanupMonitoringOnDispose(
+    String? sessionId,
+  ) async {
+    if (AudioMonitoringService.instance.isMonitoring) {
+      try {
+        await AudioMonitoringService.instance.stopMonitoring();
+      } catch (e) {
+        debugPrint('Microphone cleanup error: $e');
+      }
+    }
+
+    if (sessionId != null) {
+      try {
+        await FirestoreService.instance.endSession(
+          sessionId: sessionId,
+        );
+      } catch (e) {
+        debugPrint('Session cleanup error: $e');
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    unawaited(
+      _cleanupMonitoringOnDispose(_activeSessionId),
+    );
+
+    super.dispose();
   }
 
   Future<void> _showReminderDialog() async {
@@ -159,6 +348,10 @@ class _HomeScreenState extends State<HomeScreen> {
             greeting: _greeting,
             showReminderBadge: _hasImportantReminders,
             onBellTap: _showReminderDialog,
+            isMonitoring: _isMonitoring,
+            isMonitoringActionInProgress:
+                _isMonitoringActionInProgress,
+            onMonitoringTap: _toggleMonitoring,
           ),
           const HistoryScreen(),
           const ReportsScreen(),
@@ -184,11 +377,17 @@ class _HomeTab extends StatelessWidget {
     required this.greeting,
     required this.showReminderBadge,
     required this.onBellTap,
+    required this.isMonitoring,
+    required this.isMonitoringActionInProgress,
+    required this.onMonitoringTap,
   });
 
   final String greeting;
   final bool showReminderBadge;
   final VoidCallback onBellTap;
+  final bool isMonitoring;
+  final bool isMonitoringActionInProgress;
+  final VoidCallback onMonitoringTap;
 
   @override
   Widget build(BuildContext context) {
@@ -222,7 +421,11 @@ class _HomeTab extends StatelessWidget {
             const SizedBox(height: 20),
 
             // ── Idle monitoring card ──────────────────────────
-            _IdleMonitoringCard(),
+            _IdleMonitoringCard(
+              isMonitoring: isMonitoring,
+              isLoading: isMonitoringActionInProgress,
+              onMonitoringTap: onMonitoringTap,
+            ),
 
             const SizedBox(height: 16),
 
@@ -343,6 +546,16 @@ class _TopBar extends StatelessWidget {
 // ── Idle monitoring card ─────────────────────────────────────────
 
 class _IdleMonitoringCard extends StatelessWidget {
+  const _IdleMonitoringCard({
+    required this.isMonitoring,
+    required this.isLoading,
+    required this.onMonitoringTap,
+  });
+
+  final bool isMonitoring;
+  final bool isLoading;
+  final VoidCallback onMonitoringTap;
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -374,8 +587,10 @@ class _IdleMonitoringCard extends StatelessWidget {
               shape: BoxShape.circle,
             ),
             alignment: Alignment.center,
-            child: const Icon(
-              Icons.mic_none_rounded,
+            child: Icon(
+              isMonitoring
+                  ? Icons.mic_rounded
+                  : Icons.mic_none_rounded,
               size: 44,
               color: AppColors.primary,
             ),
@@ -385,14 +600,18 @@ class _IdleMonitoringCard extends StatelessWidget {
 
           // ── Status texts ──────────────────────────────
           Text(
-            'المراقبة متوقفة',
+            isMonitoring
+                ? 'المراقبة قيد التشغيل'
+                : 'المراقبة متوقفة',
             style: AppTextStyles.screenTitle.copyWith(fontSize: 17),
           ),
 
           const SizedBox(height: 6),
 
           Text(
-            'ابدئي الجلسة ليستمع مهد إلى محيط طفلك.',
+            isMonitoring
+                ? 'مهد يستمع الآن إلى محيط طفلك ويعالج الصوت محليًا.'
+                : 'ابدئي الجلسة ليستمع مهد إلى محيط طفلك.',
             style: AppTextStyles.helperText.copyWith(
               fontSize: 12.5,
               color: AppColors.textHelper,
@@ -402,45 +621,65 @@ class _IdleMonitoringCard extends StatelessWidget {
 
           const SizedBox(height: 20),
 
-          // ── Start monitoring button ───────────────────
-          _StartMonitoringButton(),
+          // ── Monitoring button ─────────────────────────
+          _StartMonitoringButton(
+            isMonitoring: isMonitoring,
+            isLoading: isLoading,
+            onPressed: onMonitoringTap,
+          ),
         ],
       ),
     );
   }
 }
 
-// ── Dark "بدء المراقبة" button ───────────────────────────────────
+// ── Dark monitoring button ───────────────────────────────────────
 
 class _StartMonitoringButton extends StatelessWidget {
+  const _StartMonitoringButton({
+    required this.isMonitoring,
+    required this.isLoading,
+    required this.onPressed,
+  });
+
+  final bool isMonitoring;
+  final bool isLoading;
+  final VoidCallback onPressed;
+
   @override
   Widget build(BuildContext context) {
     return SizedBox(
       height: 52,
       width: double.infinity,
       child: TextButton(
-        onPressed: () {
-          // TODO: trigger monitoring session (future feature)
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('بدء جلسة المراقبة… (قريبًا)'),
-            ),
-          );
-        },
+        onPressed: isLoading ? null : onPressed,
         style: TextButton.styleFrom(
           backgroundColor: AppColors.darkSurface,
+          disabledBackgroundColor:
+              AppColors.darkSurface.withValues(alpha: 0.72),
           foregroundColor: AppColors.darkSurfaceText,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(17),
           ),
           padding: EdgeInsets.zero,
         ),
-        child: Text(
-          'بدء المراقبة',
-          style: AppTextStyles.buttonText.copyWith(
-            color: AppColors.darkSurfaceText,
-          ),
-        ),
+        child: isLoading
+            ? const SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.2,
+                  color: AppColors.darkSurfaceText,
+                ),
+              )
+            : Text(
+                isMonitoring
+                    ? 'إيقاف المراقبة'
+                    : 'بدء المراقبة',
+                style: AppTextStyles.buttonText.copyWith(
+                  color: AppColors.darkSurfaceText,
+                ),
+              ),
       ),
     );
   }
@@ -477,7 +716,6 @@ class _LatestCryEventCard extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // ── Icon pill ──────────────────────────────
               Container(
                 width: 44,
                 height: 44,
@@ -495,7 +733,6 @@ class _LatestCryEventCard extends StatelessWidget {
 
               const SizedBox(width: 12),
 
-              // ── Title + timestamp ──────────────────────
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -524,9 +761,11 @@ class _LatestCryEventCard extends StatelessWidget {
 
           const SizedBox(height: 10),
 
-          // ── Classification details ─────────────────
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 8,
+            ),
             decoration: BoxDecoration(
               color: AppColors.backgroundCream,
               borderRadius: BorderRadius.circular(12),
@@ -594,7 +833,10 @@ class _QuickStatsRow extends StatelessWidget {
           valueColor: AppColors.primary,
         ),
         SizedBox(width: 10),
-        _StatTile(value: '—', label: 'مدة المراقبة'),
+        _StatTile(
+          value: '—',
+          label: 'مدة المراقبة',
+        ),
       ],
     );
   }
@@ -615,7 +857,10 @@ class _StatTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+        padding: const EdgeInsets.symmetric(
+          vertical: 14,
+          horizontal: 12,
+        ),
         decoration: BoxDecoration(
           color: AppColors.cardSurface,
           borderRadius: BorderRadius.circular(20),
@@ -639,7 +884,9 @@ class _StatTile extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               label,
-              style: AppTextStyles.featureDesc.copyWith(fontSize: 11),
+              style: AppTextStyles.featureDesc.copyWith(
+                fontSize: 11,
+              ),
               textAlign: TextAlign.center,
               maxLines: 2,
             ),
@@ -672,10 +919,10 @@ class _EnvironmentRow extends StatelessWidget {
             label: 'درجة الحرارة',
             value: _temperature.toStringAsFixed(0),
             unit: '°م',
-            // Comfortable range: 18–26 °C → green tint; outside → warm alert
-            accentColor: (_temperature >= 18 && _temperature <= 26)
-                ? AppColors.success
-                : AppColors.alert,
+            accentColor:
+                (_temperature >= 18 && _temperature <= 26)
+                    ? AppColors.success
+                    : AppColors.alert,
             iconBgColor: const Color(0xFFFDEADF),
           ),
         ),
@@ -715,7 +962,10 @@ class _EnvCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      padding: const EdgeInsets.symmetric(
+        horizontal: 16,
+        vertical: 16,
+      ),
       decoration: BoxDecoration(
         color: AppColors.cardSurface,
         borderRadius: BorderRadius.circular(22),
@@ -730,7 +980,6 @@ class _EnvCard extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // ── Icon pill ──────────────────────────────
           Container(
             width: 44,
             height: 44,
@@ -739,20 +988,23 @@ class _EnvCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(14),
             ),
             alignment: Alignment.center,
-            child: Icon(icon, size: 22, color: accentColor),
+            child: Icon(
+              icon,
+              size: 22,
+              color: accentColor,
+            ),
           ),
 
           const SizedBox(width: 12),
 
-          // ── Value + label ──────────────────────────
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Numeric value
                 Row(
-                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  crossAxisAlignment:
+                      CrossAxisAlignment.baseline,
                   textBaseline: TextBaseline.alphabetic,
                   children: [
                     Text(
@@ -777,7 +1029,6 @@ class _EnvCard extends StatelessWidget {
 
                 const SizedBox(height: 3),
 
-                // Arabic label
                 Text(
                   label,
                   style: AppTextStyles.featureDesc.copyWith(
@@ -790,12 +1041,14 @@ class _EnvCard extends StatelessWidget {
 
                 const SizedBox(height: 4),
 
-                // Status chip
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
-                    color: accentColor.withValues(alpha: 0.10),
+                    color:
+                        accentColor.withValues(alpha: 0.10),
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Text(
@@ -824,7 +1077,10 @@ class _UpcomingCalendarCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      padding: const EdgeInsets.symmetric(
+        horizontal: 16,
+        vertical: 14,
+      ),
       decoration: BoxDecoration(
         color: AppColors.cardSurface,
         borderRadius: BorderRadius.circular(22),
@@ -892,7 +1148,8 @@ class _UpcomingCalendarCard extends StatelessWidget {
             onTap: () {
               Navigator.of(context).push(
                 MaterialPageRoute(
-                  builder: (context) => const CalendarScreen(),
+                  builder: (context) =>
+                      const CalendarScreen(),
                 ),
               );
             },
@@ -925,7 +1182,10 @@ class _ChildDevelopmentCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      padding: const EdgeInsets.symmetric(
+        horizontal: 16,
+        vertical: 14,
+      ),
       decoration: BoxDecoration(
         color: AppColors.cardSurface,
         borderRadius: BorderRadius.circular(22),
@@ -985,7 +1245,8 @@ class _ChildDevelopmentCard extends StatelessWidget {
             onTap: () {
               Navigator.of(context).push(
                 MaterialPageRoute(
-                  builder: (context) => const ChildDevelopmentScreen(),
+                  builder: (context) =>
+                      const ChildDevelopmentScreen(),
                 ),
               );
             },
@@ -1016,7 +1277,8 @@ class _WhiteNoiseCard extends StatefulWidget {
   const _WhiteNoiseCard();
 
   @override
-  State<_WhiteNoiseCard> createState() => _WhiteNoiseCardState();
+  State<_WhiteNoiseCard> createState() =>
+      _WhiteNoiseCardState();
 }
 
 class _WhiteNoiseCardState extends State<_WhiteNoiseCard> {
@@ -1025,7 +1287,10 @@ class _WhiteNoiseCardState extends State<_WhiteNoiseCard> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      padding: const EdgeInsets.symmetric(
+        horizontal: 16,
+        vertical: 14,
+      ),
       decoration: BoxDecoration(
         color: AppColors.cardSurface,
         borderRadius: BorderRadius.circular(22),
@@ -1040,7 +1305,6 @@ class _WhiteNoiseCardState extends State<_WhiteNoiseCard> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // ── Icon pill ──────────────────────────────
           Container(
             width: 44,
             height: 44,
@@ -1054,14 +1318,14 @@ class _WhiteNoiseCardState extends State<_WhiteNoiseCard> {
             child: Icon(
               Icons.graphic_eq_rounded,
               size: 22,
-              color:
-                  _isWhiteNoiseOn ? AppColors.primary : AppColors.textSecondary,
+              color: _isWhiteNoiseOn
+                  ? AppColors.primary
+                  : AppColors.textSecondary,
             ),
           ),
 
           const SizedBox(width: 12),
 
-          // ── Title + status subtitle ────────────────
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1076,7 +1340,9 @@ class _WhiteNoiseCardState extends State<_WhiteNoiseCard> {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  _isWhiteNoiseOn ? 'قيد التشغيل' : 'متوقفة حالياً',
+                  _isWhiteNoiseOn
+                      ? 'قيد التشغيل'
+                      : 'متوقفة حالياً',
                   style: AppTextStyles.featureDesc.copyWith(
                     fontSize: 11,
                     color: _isWhiteNoiseOn
@@ -1088,7 +1354,6 @@ class _WhiteNoiseCardState extends State<_WhiteNoiseCard> {
             ),
           ),
 
-          // ── Toggle Switch ──────────────────────────
           Switch(
             value: _isWhiteNoiseOn,
             onChanged: (value) {
@@ -1113,7 +1378,10 @@ class _PrivacyNote extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      padding: const EdgeInsets.symmetric(
+        horizontal: 16,
+        vertical: 14,
+      ),
       decoration: BoxDecoration(
         color: const Color(0xFFF6EFE7),
         borderRadius: BorderRadius.circular(20),
@@ -1160,10 +1428,22 @@ class _MahdBottomNav extends StatelessWidget {
   final ValueChanged<int> onTap;
 
   static const _items = [
-    _NavItem(icon: Icons.home_rounded, label: 'الرئيسية'),
-    _NavItem(icon: Icons.history_rounded, label: 'السجل'),
-    _NavItem(icon: Icons.bar_chart_rounded, label: 'التقارير'),
-    _NavItem(icon: Icons.settings_outlined, label: 'الإعدادات'),
+    _NavItem(
+      icon: Icons.home_rounded,
+      label: 'الرئيسية',
+    ),
+    _NavItem(
+      icon: Icons.history_rounded,
+      label: 'السجل',
+    ),
+    _NavItem(
+      icon: Icons.bar_chart_rounded,
+      label: 'التقارير',
+    ),
+    _NavItem(
+      icon: Icons.settings_outlined,
+      label: 'الإعدادات',
+    ),
   ];
 
   @override
@@ -1172,7 +1452,10 @@ class _MahdBottomNav extends StatelessWidget {
       decoration: const BoxDecoration(
         color: AppColors.cardSurface,
         border: Border(
-          top: BorderSide(color: AppColors.borderMedium, width: 1),
+          top: BorderSide(
+            color: AppColors.borderMedium,
+            width: 1,
+          ),
         ),
         boxShadow: [
           BoxShadow(
@@ -1185,7 +1468,9 @@ class _MahdBottomNav extends StatelessWidget {
       child: SafeArea(
         top: false,
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
+          padding: const EdgeInsets.symmetric(
+            vertical: 8,
+          ),
           child: Row(
             children: List.generate(
               _items.length,
@@ -1226,7 +1511,9 @@ class _NavTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color =
-        isSelected ? AppColors.primary : AppColors.textSecondary;
+        isSelected
+            ? AppColors.primary
+            : AppColors.textSecondary;
 
     return Expanded(
       child: GestureDetector(
@@ -1236,7 +1523,8 @@ class _NavTile extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
+              duration:
+                  const Duration(milliseconds: 200),
               padding: const EdgeInsets.symmetric(
                 horizontal: 14,
                 vertical: 6,
@@ -1244,7 +1532,8 @@ class _NavTile extends StatelessWidget {
               decoration: isSelected
                   ? BoxDecoration(
                       color: AppColors.iconBg,
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius:
+                          BorderRadius.circular(12),
                     )
                   : null,
               child: Icon(
@@ -1259,8 +1548,9 @@ class _NavTile extends StatelessWidget {
               style: AppTextStyles.helperText.copyWith(
                 fontSize: 10.5,
                 color: color,
-                fontWeight:
-                    isSelected ? FontWeight.w600 : FontWeight.w400,
+                fontWeight: isSelected
+                    ? FontWeight.w600
+                    : FontWeight.w400,
               ),
             ),
           ],

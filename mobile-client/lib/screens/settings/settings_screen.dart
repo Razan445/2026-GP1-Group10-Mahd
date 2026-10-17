@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../account/account_screen.dart';
@@ -130,19 +131,38 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                     ),
                   ),
+
                   const SizedBox(width: 12),
+
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: () {
+                      onPressed: () async {
                         Navigator.of(dialogContext).pop();
 
-                        Navigator.of(
-                          context,
-                          rootNavigator: true,
-                        ).pushNamedAndRemoveUntil(
-                          '/',
-                          (route) => false,
-                        );
+                        try {
+                          await FirebaseAuth.instance.signOut();
+
+                          if (!mounted) return;
+
+                          Navigator.of(
+                            context,
+                            rootNavigator: true,
+                          ).pushNamedAndRemoveUntil(
+                            '/',
+                            (route) => false,
+                          );
+                        } on FirebaseAuthException {
+                          if (!mounted) return;
+
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'حدث خطأ أثناء تسجيل الخروج',
+                              ),
+                              backgroundColor: AppColors.alert,
+                            ),
+                          );
+                        }
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.alert,
@@ -266,7 +286,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             fontWeight: FontWeight.w600,
                           ),
                         ),
+
                         const SizedBox(height: 2),
+
                         Text(
                           'sara@example.com',
                           textDirection: TextDirection.ltr,

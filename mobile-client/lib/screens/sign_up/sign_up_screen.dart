@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+
 import '../../core/routes/app_routes.dart';
 import '../../core/theme/app_theme.dart';
+import '../../services/firestore_service.dart';
 import '../../widgets/app_text_field.dart';
 import '../../widgets/primary_button.dart';
 
@@ -34,27 +37,116 @@ class _SignUpScreenState extends State<SignUpScreen> {
     super.dispose();
   }
 
-  void _submit() async {
+  Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
 
-    // Simulate network call
-    await Future.delayed(const Duration(milliseconds: 1200));
+    try {
+      final credential =
+          await FirebaseAuth.instance.createUserWithEmailAndPassword(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+      );
 
-    if (!mounted) return;
-    setState(() => _isLoading = false);
+      final user = credential.user;
 
-    // TODO: integrate real auth before navigating
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('تم إنشاء الحساب بنجاح!'),
-        backgroundColor: AppColors.success,
-      ),
-    );
+      if (user == null) {
+        throw Exception('User was not created.');
+      }
 
-    // New accounts continue to register their infant
-    Navigator.pushReplacementNamed(context, AppRoutes.infantRegistration);
+      final displayName = _nameController.text.trim();
+      final email = _emailController.text.trim();
+
+      await user.updateDisplayName(displayName);
+
+      await FirestoreService.instance.createAccount(
+        displayName: displayName,
+        email: email,
+      );
+
+      if (!mounted) return;
+
+      setState(() => _isLoading = false);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('تم إنشاء الحساب بنجاح!'),
+          backgroundColor: AppColors.success,
+        ),
+      );
+
+      Navigator.pushReplacementNamed(
+        context,
+        AppRoutes.home,
+      );
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
+
+      setState(() => _isLoading = false);
+
+      debugPrint(
+        'FirebaseAuthException: ${e.code} | ${e.message}',
+      );
+
+      String message;
+
+      switch (e.code) {
+        case 'email-already-in-use':
+          message = 'البريد الإلكتروني مستخدم مسبقًا';
+          break;
+
+        case 'invalid-email':
+          message = 'صيغة البريد الإلكتروني غير صحيحة';
+          break;
+
+        case 'weak-password':
+          message = 'كلمة المرور ضعيفة';
+          break;
+
+        case 'network-request-failed':
+          message = 'تعذر الاتصال بالشبكة، حاولي مرة أخرى';
+          break;
+
+        default:
+          message = 'حدث خطأ أثناء إنشاء الحساب';
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: AppColors.alert,
+        ),
+      );
+    } on FirebaseException catch (e) {
+      if (!mounted) return;
+
+      setState(() => _isLoading = false);
+
+      debugPrint(
+        'FirebaseException: ${e.code} | ${e.message}',
+      );
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('حدث خطأ أثناء حفظ بيانات الحساب'),
+          backgroundColor: AppColors.alert,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() => _isLoading = false);
+
+      debugPrint('Unexpected sign-up error: $e');
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('حدث خطأ غير متوقع، حاولي مرة أخرى'),
+          backgroundColor: AppColors.alert,
+        ),
+      );
+    }
   }
 
   @override
@@ -69,17 +161,22 @@ class _SignUpScreenState extends State<SignUpScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // ── Back button ────────────────────────────────
                 Align(
                   alignment: AlignmentDirectional.centerStart,
-                  child: _BackButton(onTap: () => Navigator.pop(context)),
+                  child: _BackButton(
+                    onTap: () => Navigator.pop(context),
+                  ),
                 ),
 
                 const SizedBox(height: 18),
 
-                // ── Screen title ───────────────────────────────
-                Text('إنشاء حساب', style: AppTextStyles.screenTitle),
+                Text(
+                  'إنشاء حساب',
+                  style: AppTextStyles.screenTitle,
+                ),
+
                 const SizedBox(height: 4),
+
                 Text(
                   'أدخلي بياناتك للبدء مع مهد',
                   style: AppTextStyles.helperText,
@@ -87,13 +184,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
                 const SizedBox(height: 20),
 
-                // ── Form fields ────────────────────────────────
                 AppTextField(
                   label: 'الاسم الكامل',
                   hint: 'سارة العتيبي',
                   controller: _nameController,
                   validator: (v) =>
-                      (v == null || v.trim().isEmpty) ? 'الاسم مطلوب' : null,
+                      (v == null || v.trim().isEmpty)
+                          ? 'الاسم مطلوب'
+                          : null,
                 ),
 
                 const SizedBox(height: 14),
@@ -108,11 +206,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     if (v == null || v.trim().isEmpty) {
                       return 'البريد الإلكتروني مطلوب';
                     }
+
                     final emailRegex =
                         RegExp(r'^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$');
+
                     if (!emailRegex.hasMatch(v.trim())) {
                       return 'صيغة البريد الإلكتروني غير صحيحة';
                     }
+
                     return null;
                   },
                 ),
@@ -126,10 +227,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   controller: _passwordController,
                   helperText: '٨ أحرف على الأقل',
                   validator: (v) {
-                    if (v == null || v.isEmpty) return 'كلمة المرور مطلوبة';
+                    if (v == null || v.isEmpty) {
+                      return 'كلمة المرور مطلوبة';
+                    }
+
                     if (v.length < 8) {
                       return 'كلمة المرور يجب أن تكون ٨ أحرف على الأقل';
                     }
+
                     return null;
                   },
                 ),
@@ -145,16 +250,17 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     if (v == null || v.isEmpty) {
                       return 'تأكيد كلمة المرور مطلوب';
                     }
+
                     if (v != _passwordController.text) {
                       return 'كلمتا المرور غير متطابقتين';
                     }
+
                     return null;
                   },
                 ),
 
                 const SizedBox(height: 24),
 
-                // ── Submit ────────────────────────────────────
                 PrimaryButton(
                   label: 'إنشاء الحساب',
                   onPressed: _submit,
@@ -163,18 +269,20 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
                 const SizedBox(height: 12),
 
-                // ── Login link ───────────────────────────────
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
                       'لديك حساب؟ ',
-                      style: AppTextStyles.helperText
-                          .copyWith(fontSize: 12.5),
+                      style: AppTextStyles.helperText.copyWith(
+                        fontSize: 12.5,
+                      ),
                     ),
                     GestureDetector(
-                      onTap: () =>
-                          Navigator.pushNamed(context, AppRoutes.login),
+                      onTap: () => Navigator.pushNamed(
+                        context,
+                        AppRoutes.login,
+                      ),
                       child: Text(
                         'تسجيل الدخول',
                         style: AppTextStyles.helperText.copyWith(
@@ -195,11 +303,11 @@ class _SignUpScreenState extends State<SignUpScreen> {
   }
 }
 
-// ────────────────────────────────────────────────────────────────
-//  Back button — beige pill with chevron
-// ────────────────────────────────────────────────────────────────
 class _BackButton extends StatelessWidget {
-  const _BackButton({required this.onTap});
+  const _BackButton({
+    required this.onTap,
+  });
+
   final VoidCallback onTap;
 
   @override

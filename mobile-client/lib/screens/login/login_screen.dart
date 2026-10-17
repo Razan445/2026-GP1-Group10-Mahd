@@ -1,14 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+
 import '../../core/routes/app_routes.dart';
 import '../../core/theme/app_theme.dart';
 import '../../widgets/app_text_field.dart';
 import '../../widgets/primary_button.dart';
 
 /// Screen 05 — تسجيل الدخول (Login Screen)
-///
-/// ⚠️  MOCK/BYPASS MODE: No backend is connected yet.
-///     Pressing "دخول" bypasses authentication and navigates
-///     directly to [HomeScreen] via [Navigator.pushReplacementNamed].
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -20,6 +18,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+
   bool _isLoading = false;
 
   @override
@@ -29,20 +28,83 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  // ── Bypass: navigates directly to Home ────────────────────────
-  void _onLogin() async {
+  Future<void> _onLogin() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
 
-    // Simulated network delay for realistic UX
-    await Future.delayed(const Duration(milliseconds: 900));
-    if (!mounted) return;
+    try {
+      await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+      );
 
-    setState(() => _isLoading = false);
+      if (!mounted) return;
 
-    // MOCK: replace entire back-stack so user can't go "back" to login
-    Navigator.pushReplacementNamed(context, AppRoutes.home);
+      setState(() => _isLoading = false);
+
+      Navigator.pushReplacementNamed(
+        context,
+        AppRoutes.home,
+      );
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
+
+      setState(() => _isLoading = false);
+
+      String message;
+
+      switch (e.code) {
+        case 'invalid-credential':
+          message = 'البريد الإلكتروني أو كلمة المرور غير صحيحة';
+          break;
+
+        case 'user-not-found':
+          message = 'لا يوجد حساب بهذا البريد الإلكتروني';
+          break;
+
+        case 'wrong-password':
+          message = 'كلمة المرور غير صحيحة';
+          break;
+
+        case 'invalid-email':
+          message = 'صيغة البريد الإلكتروني غير صحيحة';
+          break;
+
+        case 'user-disabled':
+          message = 'تم تعطيل هذا الحساب';
+          break;
+
+        case 'too-many-requests':
+          message = 'محاولات كثيرة، حاولي مرة أخرى لاحقًا';
+          break;
+
+        case 'network-request-failed':
+          message = 'تعذر الاتصال بالشبكة، حاولي مرة أخرى';
+          break;
+
+        default:
+          message = 'حدث خطأ أثناء تسجيل الدخول';
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: AppColors.alert,
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+
+      setState(() => _isLoading = false);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('حدث خطأ غير متوقع، حاولي مرة أخرى'),
+          backgroundColor: AppColors.alert,
+        ),
+      );
+    }
   }
 
   @override
@@ -60,7 +122,9 @@ class _LoginScreenState extends State<LoginScreen> {
                 // ── Back button ──────────────────────────────
                 Align(
                   alignment: AlignmentDirectional.centerStart,
-                  child: _BackButton(onTap: () => Navigator.pop(context)),
+                  child: _BackButton(
+                    onTap: () => Navigator.pop(context),
+                  ),
                 ),
 
                 const SizedBox(height: 28),
@@ -77,9 +141,17 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 30),
 
                 // ── Screen title ─────────────────────────────
-                Text('تسجيل الدخول', style: AppTextStyles.screenTitle),
+                Text(
+                  'تسجيل الدخول',
+                  style: AppTextStyles.screenTitle,
+                ),
+
                 const SizedBox(height: 4),
-                Text('أهلًا بعودتك', style: AppTextStyles.helperText),
+
+                Text(
+                  'أهلًا بعودتك',
+                  style: AppTextStyles.helperText,
+                ),
 
                 const SizedBox(height: 24),
 
@@ -94,11 +166,14 @@ class _LoginScreenState extends State<LoginScreen> {
                     if (v == null || v.trim().isEmpty) {
                       return 'البريد الإلكتروني مطلوب';
                     }
+
                     final emailRegex =
                         RegExp(r'^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$');
+
                     if (!emailRegex.hasMatch(v.trim())) {
                       return 'صيغة البريد الإلكتروني غير صحيحة';
                     }
+
                     return null;
                   },
                 ),
@@ -112,7 +187,10 @@ class _LoginScreenState extends State<LoginScreen> {
                   isPassword: true,
                   controller: _passwordController,
                   validator: (v) {
-                    if (v == null || v.isEmpty) return 'كلمة المرور مطلوبة';
+                    if (v == null || v.isEmpty) {
+                      return 'كلمة المرور مطلوبة';
+                    }
+
                     return null;
                   },
                 ),
@@ -125,7 +203,9 @@ class _LoginScreenState extends State<LoginScreen> {
                       // TODO: navigate to password-reset screen
                     },
                     style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 10,
+                      ),
                       foregroundColor: AppColors.primary,
                     ),
                     child: Text(
@@ -141,7 +221,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                 const SizedBox(height: 8),
 
-                // ── Login button (MOCK bypass) ────────────────
+                // ── Login button ─────────────────────────────
                 PrimaryButton(
                   label: 'دخول',
                   onPressed: _onLogin,
@@ -156,11 +236,16 @@ class _LoginScreenState extends State<LoginScreen> {
                   children: [
                     Text(
                       'ليس لديك حساب؟ ',
-                      style: AppTextStyles.helperText.copyWith(fontSize: 12.5),
+                      style: AppTextStyles.helperText.copyWith(
+                        fontSize: 12.5,
+                      ),
                     ),
                     GestureDetector(
                       onTap: () =>
-                          Navigator.pushReplacementNamed(context, AppRoutes.signUp),
+                          Navigator.pushReplacementNamed(
+                        context,
+                        AppRoutes.signUp,
+                      ),
                       child: Text(
                         'إنشاء حساب',
                         style: AppTextStyles.helperText.copyWith(
@@ -184,8 +269,12 @@ class _LoginScreenState extends State<LoginScreen> {
 // ────────────────────────────────────────────────────────────────
 //  Back button — beige pill with RTL-aware chevron
 // ────────────────────────────────────────────────────────────────
+
 class _BackButton extends StatelessWidget {
-  const _BackButton({required this.onTap});
+  const _BackButton({
+    required this.onTap,
+  });
+
   final VoidCallback onTap;
 
   @override
@@ -200,7 +289,6 @@ class _BackButton extends StatelessWidget {
           borderRadius: BorderRadius.circular(14),
         ),
         alignment: Alignment.center,
-        // chevron_right shows as "forward" in RTL = back arrow
         child: const Icon(
           Icons.chevron_right,
           color: AppColors.textPrimary,
