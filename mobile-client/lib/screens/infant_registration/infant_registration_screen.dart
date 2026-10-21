@@ -196,19 +196,7 @@ class _InfantRegistrationScreenState
               crossAxisAlignment:
                   CrossAxisAlignment.stretch,
               children: [
-                // ─────────────────────────────────────
-                // Back button
-                // ─────────────────────────────────────
-                Align(
-                  alignment:
-                      AlignmentDirectional.centerStart,
-                  child: _BackButton(
-                    onTap: () {
-                      Navigator.pop(context);
-                    },
-                  ),
-                ),
-
+                // No back button: the account was already created.
                 const SizedBox(height: 22),
 
                 // ─────────────────────────────────────
@@ -232,19 +220,10 @@ class _InfantRegistrationScreenState
                 // Baby illustration
                 // ─────────────────────────────────────
                 Center(
-                  child: Container(
-                    width: 88,
-                    height: 88,
-                    decoration: const BoxDecoration(
-                      color: AppColors.iconBg,
-                      shape: BoxShape.circle,
-                    ),
-                    alignment: Alignment.center,
-                    child: const Icon(
-                      Icons.child_care_rounded,
-                      size: 44,
-                      color: AppColors.primary,
-                    ),
+                  child: Image.asset(
+                    'assets/images/mahd-logo.png',
+                    width: 104,
+                    fit: BoxFit.contain,
                   ),
                 ),
 
@@ -432,39 +411,6 @@ class _FieldLabel extends StatelessWidget {
     return Text(
       label,
       style: AppTextStyles.fieldLabel,
-    );
-  }
-}
-
-// ────────────────────────────────────────────────────────────────
-// Back button
-// ────────────────────────────────────────────────────────────────
-class _BackButton extends StatelessWidget {
-  const _BackButton({
-    required this.onTap,
-  });
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: const Color(0xFFF4E8DE),
-          borderRadius:
-              BorderRadius.circular(14),
-        ),
-        alignment: Alignment.center,
-        child: const Icon(
-          Icons.chevron_right,
-          color: AppColors.textPrimary,
-          size: 22,
-        ),
-      ),
     );
   }
 }

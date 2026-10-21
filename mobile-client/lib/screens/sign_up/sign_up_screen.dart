@@ -78,7 +78,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
       Navigator.pushReplacementNamed(
         context,
-        AppRoutes.home,
+        AppRoutes.infantRegistration,
       );
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;

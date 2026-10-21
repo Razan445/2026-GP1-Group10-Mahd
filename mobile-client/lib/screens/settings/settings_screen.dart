@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../account/account_screen.dart';
+import '../child_info/child_info_screen.dart';
 import '../notifications/notifications_screen.dart';
 import '../privacy_security/privacy_security_screen.dart';
 
@@ -15,6 +16,7 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _showAccountScreen = false;
+  bool _showChildInfoScreen = false;
   bool _showNotificationsScreen = false;
   bool _showPrivacySecurityScreen = false;
 
@@ -27,6 +29,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void _closeAccountScreen() {
     setState(() {
       _showAccountScreen = false;
+    });
+  }
+
+  void _openChildInfoScreen() {
+    setState(() {
+      _showChildInfoScreen = true;
+    });
+  }
+
+  void _closeChildInfoScreen() {
+    setState(() {
+      _showChildInfoScreen = false;
     });
   }
 
@@ -201,6 +215,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
       );
     }
 
+    if (_showChildInfoScreen) {
+      return ChildInfoScreen(
+        onBack: _closeChildInfoScreen,
+      );
+    }
+
     if (_showNotificationsScreen) {
       return NotificationsScreen(
         onBack: _closeNotificationsScreen,
@@ -352,6 +372,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               child: Column(
                 children: [
+                  _SettingsRow(
+                    icon: Icons.child_care_rounded,
+                    title: 'معلومات الطفل',
+                    showArrow: true,
+                    onTap: _openChildInfoScreen,
+                  ),
+
+                  const _SettingsDivider(),
+
                   _SettingsRow(
                     icon: Icons.notifications_none_rounded,
                     title: 'الإشعارات',
