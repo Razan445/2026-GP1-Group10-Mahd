@@ -8,6 +8,7 @@ import '../../services/firestore_service.dart';
 import '../../widgets/app_text_field.dart';
 import '../../widgets/primary_button.dart';
 import '../../widgets/app_snack_bar.dart';
+import '../../widgets/device_linking_dialog.dart';
 
 /// Screen 03 — إنشاء حساب (Sign-Up Screen)
 ///
@@ -76,6 +77,22 @@ class _SignUpScreenState extends State<SignUpScreen> {
         'تم إنشاء الحساب بنجاح!',
         type: AppSnackBarType.success,
       );
+
+      // نافذة محاكاة ربط جهاز «نبض مهد» بحساب المستخدمة
+      final linked = await DeviceLinkingDialog.show(
+        context,
+        userName: displayName,
+      );
+
+      if (!mounted) return;
+
+      if (linked) {
+        AppSnackBar.show(
+          context,
+          'تم ربط $kMahdDeviceName بحسابك',
+          type: AppSnackBarType.success,
+        );
+      }
 
       Navigator.pushReplacementNamed(
         context,
