@@ -63,6 +63,26 @@ class FirestoreService {
     });
   }
 
+  /// Keeps the Firestore email in sync with the Firebase Auth email
+  /// (the Auth email changes only after the user verifies a new address).
+  Future<void> syncEmailFromAuth() async {
+    final user = _auth.currentUser;
+
+    if (user == null) return;
+
+    await user.reload();
+
+    final authEmail = _auth.currentUser?.email;
+
+    if (authEmail == null || authEmail.isEmpty) return;
+
+    final snapshot = await _currentAccount.get();
+
+    if (snapshot.data()?['email'] != authEmail) {
+      await _currentAccount.update({'email': authEmail});
+    }
+  }
+
   Stream<DocumentSnapshot<Map<String, dynamic>>> watchAccount() {
     return _currentAccount.snapshots();
   }

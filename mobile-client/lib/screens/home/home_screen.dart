@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
 import '../../services/audio_monitoring_service.dart';
@@ -389,9 +391,19 @@ class _HomeTab extends StatelessWidget {
             const SizedBox(height: 6),
 
             // ── Greeting ─────────────────────────────────────
-            Text(
-              '$greeting، سارة',
-              style: AppTextStyles.screenTitle.copyWith(fontSize: 21),
+            StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+              stream: FirestoreService.instance.watchAccount(),
+              builder: (context, snapshot) {
+                final name =
+                    (snapshot.data?.data()?['fullName'] as String?)?.trim();
+
+                return Text(
+                  (name == null || name.isEmpty)
+                      ? greeting
+                      : '$greeting، $name',
+                  style: AppTextStyles.screenTitle.copyWith(fontSize: 21),
+                );
+              },
             ),
 
             const SizedBox(height: 4),

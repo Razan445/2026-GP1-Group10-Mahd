@@ -1,7 +1,11 @@
+import 'dart:async';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../services/firestore_service.dart';
 import '../account/account_screen.dart';
 import '../child_info/child_info_screen.dart';
 import '../notifications/notifications_screen.dart';
@@ -16,6 +20,43 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>?
+      _accountSubscription;
+
+  String _fullName = '';
+  String _email = '';
+
+  @override
+  void initState() {
+    super.initState();
+
+    final user = FirebaseAuth.instance.currentUser;
+    _fullName = user?.displayName ?? '';
+    _email = user?.email ?? '';
+
+    if (user != null) {
+      FirestoreService.instance.syncEmailFromAuth().catchError((_) {});
+
+      _accountSubscription =
+          FirestoreService.instance.watchAccount().listen((snapshot) {
+        final data = snapshot.data();
+
+        if (data == null || !mounted) return;
+
+        setState(() {
+          _fullName = (data['fullName'] as String?) ?? _fullName;
+          _email = (data['email'] as String?) ?? _email;
+        });
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _accountSubscription?.cancel();
+    super.dispose();
+  }
+
   bool _showAccountScreen = false;
   bool _showChildInfoScreen = false;
   bool _showNotificationsScreen = false;
@@ -282,7 +323,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       borderRadius: BorderRadius.circular(17),
                     ),
                     child: Text(
-                      'س',
+                      _fullName.isEmpty
+                          ? '؟'
+                          : _fullName.substring(0, 1).toUpperCase(),
                       style: AppTextStyles.screenTitle.copyWith(
                         fontSize: 20,
                         color: AppColors.primary,
@@ -298,7 +341,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'سارة العتيبي',
+                          _fullName,
                           style: AppTextStyles.cardTitle.copyWith(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
@@ -308,7 +351,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         const SizedBox(height: 2),
 
                         Text(
-                          'sara@example.com',
+                          _email,
                           textDirection: TextDirection.ltr,
                           style: AppTextStyles.featureDesc.copyWith(
                             fontSize: 10.5,
