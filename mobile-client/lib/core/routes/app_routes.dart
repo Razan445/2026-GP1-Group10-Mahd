@@ -7,6 +7,7 @@ class AppRoutes {
   static const String onboarding = '/onboarding';
   static const String signUp = '/sign-up';
   static const String login = '/login';
+  static const String forgotPassword = '/forgot-password';
 
   // ── Post-auth flow ───────────────────────────────────────────
   static const String infantRegistration = '/infant-registration';
