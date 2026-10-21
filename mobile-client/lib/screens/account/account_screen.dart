@@ -46,6 +46,8 @@ class _AccountScreenState extends State<AccountScreen> {
         'تم حفظ التغييرات',
         type: AppSnackBarType.success,
       );
+
+    widget.onBack();
   }
 
   @override

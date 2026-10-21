@@ -145,6 +145,8 @@ class _ChildInfoScreenState extends State<ChildInfoScreen> {
       setState(() => _isSaving = false);
 
       _showMessage('تم حفظ معلومات الطفل', AppSnackBarType.success);
+
+      widget.onBack();
     } catch (e) {
       debugPrint('Child info save error: $e');
 
