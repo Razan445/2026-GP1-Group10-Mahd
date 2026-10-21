@@ -1,7 +1,11 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/validators.dart';
+import '../../services/firestore_service.dart';
 import '../../widgets/app_text_field.dart';
 import '../../widgets/app_snack_bar.dart';
+import 'email_verification_dialog.dart';
 
 class AccountScreen extends StatefulWidget {
   const AccountScreen({
@@ -18,13 +22,47 @@ class AccountScreen extends StatefulWidget {
 class _AccountScreenState extends State<AccountScreen> {
   final _formKey = GlobalKey<FormState>();
 
-  final _nameController = TextEditingController(
-    text: 'سارة العتيبي',
-  );
+  final _nameController = TextEditingController();
+  final _emailController = TextEditingController();
 
-  final _emailController = TextEditingController(
-    text: 'sara@example.com',
-  );
+  bool _isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAccount();
+  }
+
+  Future<void> _loadAccount() async {
+    final user = FirebaseAuth.instance.currentUser;
+
+    _nameController.text = user?.displayName ?? '';
+    _emailController.text = user?.email ?? '';
+
+    try {
+      await FirestoreService.instance.syncEmailFromAuth();
+    } catch (e) {
+      debugPrint('Email sync error: $e');
+    }
+
+    try {
+      final snapshot = await FirestoreService.instance.watchAccount().first;
+      final data = snapshot.data();
+
+      if (data != null) {
+        _nameController.text =
+            (data['fullName'] as String?) ?? _nameController.text;
+        _emailController.text =
+            (data['email'] as String?) ?? _emailController.text;
+      }
+    } catch (e) {
+      debugPrint('Load account error: $e');
+    }
+
+    if (!mounted) return;
+
+    setState(() {});
+  }
 
   @override
   void dispose() {
@@ -33,21 +71,106 @@ class _AccountScreenState extends State<AccountScreen> {
     super.dispose();
   }
 
-  void _saveChanges() {
+  Future<void> _saveChanges() async {
     if (!_formKey.currentState!.validate()) return;
 
     FocusScope.of(context).unfocus();
 
-    // TODO:
-    // Save account information to Firebase later.
+    setState(() => _isSaving = true);
 
-    AppSnackBar.show(
+    try {
+      final name = _nameController.text.trim();
+
+      final user = FirebaseAuth.instance.currentUser;
+      final newEmail = _emailController.text.trim();
+      final emailChanged =
+          user != null && newEmail.toLowerCase() != (user.email ?? '').toLowerCase();
+
+      await user?.updateDisplayName(name);
+      await FirestoreService.instance.updateAccountProfile(fullName: name);
+
+      if (emailChanged) {
+        // Firebase requires the new address to be verified before the
+        // account email actually changes.
+        await user.verifyBeforeUpdateEmail(newEmail);
+      }
+
+      if (!mounted) return;
+
+      setState(() => _isSaving = false);
+
+      if (emailChanged) {
+        _emailController.text = user.email ?? '';
+
+        final verified = await showEmailVerificationDialog(
+          context,
+          newEmail: newEmail,
+        );
+
+        if (!mounted) return;
+
+        if (verified) {
+          AppSnackBar.show(
+            context,
+            'تم تأكيد البريد الإلكتروني وحفظ التغييرات',
+            type: AppSnackBarType.success,
+          );
+        } else {
+          AppSnackBar.show(
+            context,
+            'تم حفظ التغييرات. سيبقى بريدك الحالي حتى تؤكدي البريد الجديد',
+            type: AppSnackBarType.info,
+          );
+        }
+      } else {
+        AppSnackBar.show(
+          context,
+          'تم حفظ التغييرات',
+          type: AppSnackBarType.success,
+        );
+      }
+
+      widget.onBack();
+    } on FirebaseAuthException catch (e) {
+      debugPrint('Account save auth error: ${e.code}');
+
+      if (!mounted) return;
+
+      setState(() => _isSaving = false);
+
+      String message;
+
+      switch (e.code) {
+        case 'requires-recent-login':
+          message = 'لتغيير البريد الإلكتروني سجّلي الدخول مرة أخرى ثم أعيدي المحاولة';
+          break;
+        case 'email-already-in-use':
+          message = 'البريد الإلكتروني مستخدم مسبقًا';
+          break;
+        case 'invalid-email':
+          message = 'صيغة البريد الإلكتروني غير صحيحة';
+          break;
+        case 'network-request-failed':
+          message = 'تعذر الاتصال بالشبكة، حاولي مرة أخرى';
+          break;
+        default:
+          message = 'حدث خطأ أثناء حفظ التغييرات';
+      }
+
+      AppSnackBar.show(context, message, type: AppSnackBarType.error);
+    } catch (e) {
+      debugPrint('Account save error: $e');
+
+      if (!mounted) return;
+
+      setState(() => _isSaving = false);
+
+      AppSnackBar.show(
         context,
-        'تم حفظ التغييرات',
-        type: AppSnackBarType.success,
+        'حدث خطأ أثناء حفظ التغييرات',
+        type: AppSnackBarType.error,
       );
-
-    widget.onBack();
+    }
   }
 
   @override
@@ -107,7 +230,9 @@ class _AccountScreenState extends State<AccountScreen> {
                     borderRadius: BorderRadius.circular(24),
                   ),
                   child: Text(
-                    'س',
+                    _nameController.text.isEmpty
+                        ? '؟'
+                        : _nameController.text.substring(0, 1).toUpperCase(),
                     style: AppTextStyles.screenTitle.copyWith(
                       fontSize: 25,
                       color: AppColors.primary,
@@ -125,13 +250,7 @@ class _AccountScreenState extends State<AccountScreen> {
                 label: 'الاسم الكامل',
                 controller: _nameController,
                 hint: 'سارة العتيبي',
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'الاسم مطلوب';
-                  }
-
-                  return null;
-                },
+                validator: Validators.arabicFullName,
               ),
 
               const SizedBox(height: 14),
@@ -223,7 +342,7 @@ class _AccountScreenState extends State<AccountScreen> {
                 width: double.infinity,
                 height: 54,
                 child: TextButton(
-                  onPressed: _saveChanges,
+                  onPressed: _isSaving ? null : _saveChanges,
                   style: TextButton.styleFrom(
                     backgroundColor: AppColors.darkSurface,
                     foregroundColor: AppColors.darkSurfaceText,

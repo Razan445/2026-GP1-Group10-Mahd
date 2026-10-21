@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../core/routes/app_routes.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/validators.dart';
 import '../../services/firestore_service.dart';
 import '../../widgets/app_text_field.dart';
 import '../../widgets/primary_button.dart';
@@ -202,10 +203,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   label: 'الاسم الكامل',
                   hint: 'سارة العتيبي',
                   controller: _nameController,
-                  validator: (v) =>
-                      (v == null || v.trim().isEmpty)
-                          ? 'الاسم مطلوب'
-                          : null,
+                  validator: Validators.arabicFullName,
                 ),
 
                 const SizedBox(height: 14),
@@ -239,18 +237,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   hint: '••••••••',
                   isPassword: true,
                   controller: _passwordController,
-                  helperText: '٨ أحرف على الأقل',
-                  validator: (v) {
-                    if (v == null || v.isEmpty) {
-                      return 'كلمة المرور مطلوبة';
-                    }
-
-                    if (v.length < 8) {
-                      return 'كلمة المرور يجب أن تكون ٨ أحرف على الأقل';
-                    }
-
-                    return null;
-                  },
+                  helperText:
+                      '٨ أحرف على الأقل تشمل حرفًا كبيرًا وصغيرًا ورقمًا ورمزًا خاصًا',
+                  validator: Validators.password,
                 ),
 
                 const SizedBox(height: 14),

@@ -6,6 +6,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'core/routes/app_routes.dart';
 import 'core/theme/app_theme.dart';
 import 'firebase_options.dart';
+import 'screens/forgot_password/forgot_password_screen.dart';
 import 'screens/home/home_screen.dart';
 import 'screens/infant_registration/infant_registration_screen.dart';
 import 'screens/login/login_screen.dart';
@@ -67,6 +68,7 @@ class MahdApp extends StatelessWidget {
         AppRoutes.onboarding: (_) => const OnboardingScreen(),
         AppRoutes.signUp: (_) => const SignUpScreen(),
         AppRoutes.login: (_) => const LoginScreen(),
+        AppRoutes.forgotPassword: (_) => const ForgotPasswordScreen(),
 
         // Post-auth flow
         AppRoutes.infantRegistration: (_) =>

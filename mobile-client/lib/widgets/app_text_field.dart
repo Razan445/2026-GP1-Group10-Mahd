@@ -16,6 +16,7 @@ class AppTextField extends StatefulWidget {
     this.helperText,
     this.errorText,
     this.textDirection,
+    this.readOnly = false,
   });
 
   final String label;
@@ -27,6 +28,7 @@ class AppTextField extends StatefulWidget {
   final String? helperText;
   final String? errorText;
   final TextDirection? textDirection;
+  final bool readOnly;
 
   @override
   State<AppTextField> createState() => _AppTextFieldState();
@@ -47,6 +49,7 @@ class _AppTextFieldState extends State<AppTextField> {
         // ── Input ────────────────────────────────────
         TextFormField(
           controller: widget.controller,
+          readOnly: widget.readOnly,
           obscureText: widget.isPassword && _obscure,
           keyboardType: widget.keyboardType,
           validator: widget.validator,

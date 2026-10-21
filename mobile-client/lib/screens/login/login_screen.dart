@@ -199,7 +199,11 @@ class _LoginScreenState extends State<LoginScreen> {
                   alignment: AlignmentDirectional.centerStart,
                   child: TextButton(
                     onPressed: () {
-                      // TODO: navigate to password-reset screen
+                      Navigator.pushNamed(
+                        context,
+                        AppRoutes.forgotPassword,
+                        arguments: _emailController.text.trim(),
+                      );
                     },
                     style: TextButton.styleFrom(
                       padding: const EdgeInsets.symmetric(
