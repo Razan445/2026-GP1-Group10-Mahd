@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+
 import '../../core/theme/app_theme.dart';
+import '../../services/local_settings_service.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({
@@ -14,10 +16,154 @@ class NotificationsScreen extends StatefulWidget {
       _NotificationsScreenState();
 }
 
-class _NotificationsScreenState extends State<NotificationsScreen> {
+class _NotificationsScreenState
+    extends State<NotificationsScreen> {
   bool _cryAlerts = true;
   bool _environmentAlerts = true;
   bool _connectionAlerts = true;
+
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSettings();
+  }
+
+  Future<void> _loadSettings() async {
+    try {
+      final values = await Future.wait<bool>([
+        LocalSettingsService.instance
+            .getCryAlertsEnabled(),
+        LocalSettingsService.instance
+            .getEnvironmentAlertsEnabled(),
+        LocalSettingsService.instance
+            .getConnectionAlertsEnabled(),
+      ]);
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _cryAlerts = values[0];
+        _environmentAlerts = values[1];
+        _connectionAlerts = values[2];
+        _isLoading = false;
+      });
+    } catch (e) {
+      debugPrint(
+        'Local notification settings load error: $e',
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _setCryAlerts(
+    bool value,
+  ) async {
+    final previousValue = _cryAlerts;
+
+    setState(() {
+      _cryAlerts = value;
+    });
+
+    try {
+      await LocalSettingsService.instance
+          .setCryAlertsEnabled(value);
+    } catch (e) {
+      debugPrint(
+        'Cry notification setting save error: $e',
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _cryAlerts = previousValue;
+      });
+
+      _showSaveError();
+    }
+  }
+
+  Future<void> _setEnvironmentAlerts(
+    bool value,
+  ) async {
+    final previousValue = _environmentAlerts;
+
+    setState(() {
+      _environmentAlerts = value;
+    });
+
+    try {
+      await LocalSettingsService.instance
+          .setEnvironmentAlertsEnabled(value);
+    } catch (e) {
+      debugPrint(
+        'Environment notification setting save error: $e',
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _environmentAlerts = previousValue;
+      });
+
+      _showSaveError();
+    }
+  }
+
+  Future<void> _setConnectionAlerts(
+    bool value,
+  ) async {
+    final previousValue = _connectionAlerts;
+
+    setState(() {
+      _connectionAlerts = value;
+    });
+
+    try {
+      await LocalSettingsService.instance
+          .setConnectionAlertsEnabled(value);
+    } catch (e) {
+      debugPrint(
+        'Connection notification setting save error: $e',
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _connectionAlerts = previousValue;
+      });
+
+      _showSaveError();
+    }
+  }
+
+  void _showSaveError() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'تعذر حفظ إعداد الإشعار',
+          textDirection: TextDirection.rtl,
+        ),
+        backgroundColor: AppColors.alert,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -79,49 +225,51 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   ),
                 ],
               ),
-              child: Column(
-                children: [
-                  _NotificationRow(
-                    title: 'تنبيهات البكاء',
-                    subtitle:
-                        'مع السبب المحتمل ودرجة الثقة',
-                    value: _cryAlerts,
-                    onChanged: (value) {
-                      setState(() {
-                        _cryAlerts = value;
-                      });
-                    },
-                  ),
+              child: _isLoading
+                  ? const Padding(
+                      padding: EdgeInsets.symmetric(
+                        vertical: 38,
+                      ),
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          color: AppColors.primary,
+                          strokeWidth: 2.5,
+                        ),
+                      ),
+                    )
+                  : Column(
+                      children: [
+                        _NotificationRow(
+                          title: 'تنبيهات البكاء',
+                          subtitle:
+                              'مع السبب المحتمل ودرجة الثقة',
+                          value: _cryAlerts,
+                          onChanged: _setCryAlerts,
+                        ),
 
-                  const _NotificationDivider(),
+                        const _NotificationDivider(),
 
-                  _NotificationRow(
-                    title: 'تنبيهات البيئة',
-                    subtitle:
-                        'عند تغير الحرارة أو الرطوبة عن النطاق المناسب',
-                    value: _environmentAlerts,
-                    onChanged: (value) {
-                      setState(() {
-                        _environmentAlerts = value;
-                      });
-                    },
-                  ),
+                        _NotificationRow(
+                          title: 'تنبيهات البيئة',
+                          subtitle:
+                              'عند تغير الحرارة أو الرطوبة عن النطاق المناسب',
+                          value: _environmentAlerts,
+                          onChanged:
+                              _setEnvironmentAlerts,
+                        ),
 
-                  const _NotificationDivider(),
+                        const _NotificationDivider(),
 
-                  _NotificationRow(
-                    title: 'انقطاع الاتصال',
-                    subtitle:
-                        'تنبيه عند توقف اتصال جهاز مَهد',
-                    value: _connectionAlerts,
-                    onChanged: (value) {
-                      setState(() {
-                        _connectionAlerts = value;
-                      });
-                    },
-                  ),
-                ],
-              ),
+                        _NotificationRow(
+                          title: 'انقطاع الاتصال',
+                          subtitle:
+                              'تنبيه عند توقف اتصال جهاز مَهد',
+                          value: _connectionAlerts,
+                          onChanged:
+                              _setConnectionAlerts,
+                        ),
+                      ],
+                    ),
             ),
 
             const SizedBox(height: 16),
@@ -152,7 +300,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   Expanded(
                     child: Text(
                       'ننصح بإبقاء تنبيهات البكاء وانقطاع الاتصال مفعّلة لمتابعة حالة الطفل.',
-                      style: AppTextStyles.helperText.copyWith(
+                      style:
+                          AppTextStyles.helperText.copyWith(
                         fontSize: 10.5,
                         height: 1.8,
                         color: AppColors.textHelper,
@@ -196,11 +345,13 @@ class _NotificationRow extends StatelessWidget {
         children: [
           Expanded(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
               children: [
                 Text(
                   title,
-                  style: AppTextStyles.cardTitle.copyWith(
+                  style:
+                      AppTextStyles.cardTitle.copyWith(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                   ),
@@ -210,7 +361,8 @@ class _NotificationRow extends StatelessWidget {
 
                 Text(
                   subtitle,
-                  style: AppTextStyles.featureDesc.copyWith(
+                  style:
+                      AppTextStyles.featureDesc.copyWith(
                     fontSize: 10.5,
                     height: 1.6,
                   ),
@@ -227,7 +379,8 @@ class _NotificationRow extends StatelessWidget {
             activeThumbColor: Colors.white,
             activeTrackColor: AppColors.primary,
             inactiveThumbColor: Colors.white,
-            inactiveTrackColor: AppColors.borderBeige,
+            inactiveTrackColor:
+                AppColors.borderBeige,
           ),
         ],
       ),

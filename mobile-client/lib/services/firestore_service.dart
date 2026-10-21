@@ -29,6 +29,15 @@ class FirestoreService {
   // ═════════════════════════════════════════════════════════════
   // Account
   // accounts/{accountId}
+  //
+  // Fields:
+  // accountId
+  // fullName
+  // email
+  // childName
+  // childDateOfBirth
+  // childGender
+  // deviceId
   // ═════════════════════════════════════════════════════════════
 
   CollectionReference<Map<String, dynamic>> get _accounts =>
@@ -47,20 +56,10 @@ class FirestoreService {
       'accountId': user.uid,
       'fullName': displayName,
       'email': email,
-
       'childName': null,
       'childDateOfBirth': null,
       'childGender': null,
-
-      'deviceModel': null,
       'deviceId': null,
-      'deviceName': null,
-      'deviceStatus': null,
-      'deviceUpdatedAt': null,
-
-      'cryAlertsEnabled': true,
-      'environmentAlertsEnabled': true,
-      'connectionAlertsEnabled': true,
     });
   }
 
@@ -105,61 +104,12 @@ class FirestoreService {
     await _currentAccount.update(updates);
   }
 
-  Future<void> updateDeviceInfo({
-    String? deviceModel,
-    String? deviceId,
-    String? deviceName,
-    String? deviceStatus,
+  Future<void> updateDeviceId({
+    required String deviceId,
   }) async {
-    final updates = <String, dynamic>{
-      'deviceUpdatedAt': FieldValue.serverTimestamp(),
-    };
-
-    if (deviceModel != null) {
-      updates['deviceModel'] = deviceModel;
-    }
-
-    if (deviceId != null) {
-      updates['deviceId'] = deviceId;
-    }
-
-    if (deviceName != null) {
-      updates['deviceName'] = deviceName;
-    }
-
-    if (deviceStatus != null) {
-      updates['deviceStatus'] = deviceStatus;
-    }
-
-    await _currentAccount.update(updates);
-  }
-
-  Future<void> updateNotificationSettings({
-    bool? cryAlertsEnabled,
-    bool? environmentAlertsEnabled,
-    bool? connectionAlertsEnabled,
-  }) async {
-    final updates = <String, dynamic>{};
-
-    if (cryAlertsEnabled != null) {
-      updates['cryAlertsEnabled'] = cryAlertsEnabled;
-    }
-
-    if (environmentAlertsEnabled != null) {
-      updates['environmentAlertsEnabled'] =
-          environmentAlertsEnabled;
-    }
-
-    if (connectionAlertsEnabled != null) {
-      updates['connectionAlertsEnabled'] =
-          connectionAlertsEnabled;
-    }
-
-    if (updates.isEmpty) {
-      return;
-    }
-
-    await _currentAccount.update(updates);
+    await _currentAccount.update({
+      'deviceId': deviceId,
+    });
   }
 
   // ═════════════════════════════════════════════════════════════
@@ -209,6 +159,14 @@ class FirestoreService {
   // ═════════════════════════════════════════════════════════════
   // Reminder
   // accounts/{accountId}/reminders/{reminderId}
+  //
+  // Fields:
+  // reminderId
+  // title
+  // description (optional)
+  // dateTime
+  // type
+  // status
   // ═════════════════════════════════════════════════════════════
 
   CollectionReference<Map<String, dynamic>> get _reminders =>
@@ -216,19 +174,29 @@ class FirestoreService {
 
   Future<String> createReminder({
     required String title,
+    String? description,
     required DateTime dateTime,
     required String type,
     required String status,
   }) async {
     final document = _reminders.doc();
 
-    await document.set({
+    final data = <String, dynamic>{
       'reminderId': document.id,
       'title': title,
       'dateTime': Timestamp.fromDate(dateTime),
       'type': type,
       'status': status,
-    });
+    };
+
+    final trimmedDescription = description?.trim();
+
+    if (trimmedDescription != null &&
+        trimmedDescription.isNotEmpty) {
+      data['description'] = trimmedDescription;
+    }
+
+    await document.set(data);
 
     return document.id;
   }
@@ -236,12 +204,20 @@ class FirestoreService {
   Future<void> updateReminder({
     required String reminderId,
     required String title,
+    String? description,
     required DateTime dateTime,
     required String type,
     required String status,
   }) async {
+    final trimmedDescription = description?.trim();
+
     await _reminders.doc(reminderId).update({
       'title': title,
+      'description':
+          trimmedDescription != null &&
+                  trimmedDescription.isNotEmpty
+              ? trimmedDescription
+              : FieldValue.delete(),
       'dateTime': Timestamp.fromDate(dateTime),
       'type': type,
       'status': status,
