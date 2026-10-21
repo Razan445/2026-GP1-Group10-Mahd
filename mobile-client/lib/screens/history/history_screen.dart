@@ -32,6 +32,8 @@ class HistoryEvent {
 // ──────────────────────────────────────────────
 //  Mock data  🔧  Replace with real API data
 // ──────────────────────────────────────────────
+List<HistoryEvent> get mockHistoryEvents => List.unmodifiable(_mockEvents);
+
 final List<HistoryEvent> _mockEvents = [
   // ─── Today ───────────────────────────────────────────────────
   HistoryEvent(

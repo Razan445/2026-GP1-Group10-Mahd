@@ -1,6 +1,9 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
+import '../../services/pdf_export_service.dart';
+import '../../widgets/app_snack_bar.dart';
+import '../history/history_screen.dart';
 
 // ──────────────────────────────────────────────
 //  Data models
@@ -92,6 +95,102 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
   // Touched bar index for tooltip highlight
   int _touchedBarIndex = -1;
+  bool _isExportingPdf = false;
+
+  String get _periodLabel {
+    switch (_period) {
+      case _ReportPeriod.daily:
+        return 'يومي';
+      case _ReportPeriod.weekly:
+        return 'أسبوعي';
+      case _ReportPeriod.monthly:
+        return 'شهري';
+    }
+  }
+
+  String get _dateRangeLabel {
+    switch (_period) {
+      case _ReportPeriod.daily:
+        return '١٢ مارس ٢٠٢٦';
+      case _ReportPeriod.weekly:
+        return '٦ - ١٢ مارس ٢٠٢٦';
+      case _ReportPeriod.monthly:
+        return 'مارس ٢٠٢٦';
+    }
+  }
+
+  String get _chartTitle {
+    switch (_period) {
+      case _ReportPeriod.daily:
+        return 'أحداث البكاء اليوم';
+      case _ReportPeriod.weekly:
+        return 'أحداث البكاء خلال الأسبوع';
+      case _ReportPeriod.monthly:
+        return 'أحداث البكاء خلال الشهر';
+    }
+  }
+
+  List<_DayStat> get _activeStats {
+    switch (_period) {
+      case _ReportPeriod.daily:
+        return _dailyStats;
+      case _ReportPeriod.weekly:
+        return _weeklyStats;
+      case _ReportPeriod.monthly:
+        return _monthlyStats;
+    }
+  }
+
+  Future<void> _exportPdf() async {
+    if (_isExportingPdf) return;
+
+    setState(() => _isExportingPdf = true);
+
+    try {
+      final stats = _activeStats;
+      final maxCount = stats.map((e) => e.count).reduce((a, b) => a > b ? a : b);
+      final peakIndex = stats.indexWhere((e) => e.count == maxCount);
+      final peakSlotHint = (_period == _ReportPeriod.daily && maxCount > 0)
+          ? 'أكثر فترة بكاء: ${_dailySlotRanges[peakIndex]}'
+          : null;
+
+      await PdfExportService.instance.exportMonitoringReport(
+        periodLabel: _periodLabel,
+        dateRangeLabel: _dateRangeLabel,
+        totalCryEvents: '١٨',
+        monitoringDuration: '٣٨ ساعة',
+        latestCause: 'الجوع',
+        chartTitle: _chartTitle,
+        peakSlotHint: peakSlotHint,
+        trendStats: stats
+            .map((s) => ReportTrendItem(label: s.dayLabel, count: s.count))
+            .toList(),
+        causeStats: _causeStats
+            .map((c) => ReportCauseItem(label: c.label, percentage: c.percentage))
+            .toList(),
+        historyEvents: mockHistoryEvents,
+      );
+
+      if (!mounted) return;
+      AppSnackBar.show(
+        context,
+        'تم تصدير تقرير PDF بنجاح',
+        type: AppSnackBarType.success,
+      );
+    } catch (e) {
+      debugPrint('PDF export error: $e');
+      if (!mounted) return;
+      AppSnackBar.show(
+        context,
+        'تعذر تصدير ملف PDF، حاولي مرة أخرى',
+        type: AppSnackBarType.error,
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isExportingPdf = false);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -102,7 +201,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // ── Header ───────────────────────────────────────────
-            const _ReportsHeader(),
+            _ReportsHeader(
+              isExporting: _isExportingPdf,
+              onExportPdf: _exportPdf,
+            ),
             const SizedBox(height: 14),
 
             // ── Period selector ──────────────────────────────────
@@ -144,7 +246,13 @@ class _ReportsScreenState extends State<ReportsScreen> {
 //  Header
 // ──────────────────────────────────────────────
 class _ReportsHeader extends StatelessWidget {
-  const _ReportsHeader();
+  const _ReportsHeader({
+    required this.isExporting,
+    required this.onExportPdf,
+  });
+
+  final bool isExporting;
+  final VoidCallback onExportPdf;
 
   @override
   Widget build(BuildContext context) {
@@ -165,7 +273,7 @@ class _ReportsHeader extends StatelessWidget {
         ),
         // PDF export button (icon only — stub)
         GestureDetector(
-          onTap: () {},
+          onTap: isExporting ? null : onExportPdf,
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
             decoration: BoxDecoration(
@@ -173,7 +281,16 @@ class _ReportsHeader extends StatelessWidget {
               borderRadius: BorderRadius.circular(14),
               border: Border.all(color: AppColors.borderBeige, width: 1.2),
             ),
-            child: const Icon(
+            child: isExporting
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AppColors.alert,
+                    ),
+                  )
+                : const Icon(
               Icons.picture_as_pdf_outlined,
               size: 20,
               color: AppColors.alert,
