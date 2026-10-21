@@ -5,6 +5,7 @@ import '../../core/utils/validators.dart';
 import '../../services/firestore_service.dart';
 import '../../widgets/app_text_field.dart';
 import '../../widgets/app_snack_bar.dart';
+import 'email_verification_dialog.dart';
 
 class AccountScreen extends StatefulWidget {
   const AccountScreen({
@@ -101,11 +102,26 @@ class _AccountScreenState extends State<AccountScreen> {
       if (emailChanged) {
         _emailController.text = user.email ?? '';
 
-        AppSnackBar.show(
+        final verified = await showEmailVerificationDialog(
           context,
-          'تم حفظ التغييرات. أرسلنا رابط تأكيد إلى $newEmail، وسيتغير بريدك بعد تأكيده',
-          type: AppSnackBarType.info,
+          newEmail: newEmail,
         );
+
+        if (!mounted) return;
+
+        if (verified) {
+          AppSnackBar.show(
+            context,
+            'تم تأكيد البريد الإلكتروني وحفظ التغييرات',
+            type: AppSnackBarType.success,
+          );
+        } else {
+          AppSnackBar.show(
+            context,
+            'تم حفظ التغييرات. سيبقى بريدك الحالي حتى تؤكدي البريد الجديد',
+            type: AppSnackBarType.info,
+          );
+        }
       } else {
         AppSnackBar.show(
           context,
