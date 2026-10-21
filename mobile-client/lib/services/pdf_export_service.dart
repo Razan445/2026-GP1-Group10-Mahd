@@ -3,8 +3,6 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
-import '../screens/history/history_screen.dart';
-
 /// Data transfer object for a single bar/slot in the crying trends chart.
 class ReportTrendItem {
   const ReportTrendItem({
@@ -27,8 +25,8 @@ class ReportCauseItem {
   final double percentage;
 }
 
-/// Generates and exports/shares the comprehensive Mahd PDF report containing
-/// both monitoring statistics and chronological event history.
+/// Generates and exports/shares the Mahd PDF report containing
+/// the monitoring summary, crying trends, and cause distribution.
 class PdfExportService {
   PdfExportService._();
 
@@ -45,9 +43,6 @@ class PdfExportService {
   static const PdfColor _textSecondary = PdfColor.fromInt(0xFF7C6355);
   static const PdfColor _borderBeige = PdfColor.fromInt(0xFFEFDDD0);
   static const PdfColor _borderLight = PdfColor.fromInt(0xFFF1E4D9);
-  static const PdfColor _alert = PdfColor.fromInt(0xFFBE5A43);
-  static const PdfColor _alertBg = PdfColor.fromInt(0xFFFDF1EC);
-  static const PdfColor _alertBorder = PdfColor.fromInt(0xFFF1CFC6);
   static const PdfColor _success = PdfColor.fromInt(0xFF7E9B7A);
   static const PdfColor _successBg = PdfColor.fromInt(0xFFEDF2EB);
 
@@ -62,7 +57,6 @@ class PdfExportService {
     String? peakSlotHint,
     required List<ReportTrendItem> trendStats,
     required List<ReportCauseItem> causeStats,
-    required List<HistoryEvent> historyEvents,
   }) async {
     final pdfBytes = await generateReportBytes(
       periodLabel: periodLabel,
@@ -74,7 +68,6 @@ class PdfExportService {
       peakSlotHint: peakSlotHint,
       trendStats: trendStats,
       causeStats: causeStats,
-      historyEvents: historyEvents,
     );
 
     await Printing.sharePdf(
@@ -83,7 +76,7 @@ class PdfExportService {
     );
   }
 
-  /// Generates the raw PDF bytes for the monitoring history & statistics report.
+  /// Generates the raw PDF bytes for the monitoring statistics report.
   Future<Uint8List> generateReportBytes({
     required String periodLabel,
     required String dateRangeLabel,
@@ -94,7 +87,6 @@ class PdfExportService {
     String? peakSlotHint,
     required List<ReportTrendItem> trendStats,
     required List<ReportCauseItem> causeStats,
-    required List<HistoryEvent> historyEvents,
     pw.Font? customRegularFont,
     pw.Font? customBoldFont,
   }) async {
@@ -110,10 +102,6 @@ class PdfExportService {
     } catch (_) {
       logoImage = null;
     }
-
-    // Sort events chronologically (newest first)
-    final sortedEvents = List<HistoryEvent>.from(historyEvents)
-      ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
 
     final doc = pw.Document(
       title: 'تقرير المراقبة والإحصائيات - مهد',
@@ -171,34 +159,28 @@ class PdfExportService {
             periodLabel: periodLabel,
             dateRangeLabel: dateRangeLabel,
           ),
-          pw.SizedBox(height: 16),
+          pw.SizedBox(height: 18),
 
           // ── 2. Summary Tiles ───────────────────────────────────────
           _buildSectionTitle('ملخص المراقبة'),
-          pw.SizedBox(height: 8),
+          pw.SizedBox(height: 10),
           _buildSummaryRow(
             totalCryEvents: totalCryEvents,
             monitoringDuration: monitoringDuration,
             latestCause: latestCause,
           ),
-          pw.SizedBox(height: 16),
+          pw.SizedBox(height: 18),
 
-          // ── 3. Crying Trends Chart & Causes Side-by-Side / Stacked ─
+          // ── 3. Crying Trends Chart ─────────────────────────────────
           _buildTrendsCard(
             chartTitle: chartTitle,
             peakSlotHint: peakSlotHint,
             trendStats: trendStats,
           ),
-          pw.SizedBox(height: 14),
+          pw.SizedBox(height: 18),
 
           // ── 4. Cause Distribution Card ─────────────────────────────
           _buildCausesCard(causeStats: causeStats),
-          pw.SizedBox(height: 18),
-
-          // ── 5. Chronological Monitoring History ────────────────────
-          _buildSectionTitle('سجل الأحداث المرصودة (الترتيب الزمني)'),
-          pw.SizedBox(height: 8),
-          ..._buildHistoryEventsList(sortedEvents),
         ],
       ),
     );
@@ -239,7 +221,7 @@ class PdfExportService {
               ),
               pw.SizedBox(height: 4),
               pw.Text(
-                'سجل الأحداث المرصودة وملخص أنماط بكاء الطفل',
+                'ملخص المراقبة وإحصائيات أنماط البكاء',
                 style: const pw.TextStyle(
                   fontSize: 11,
                   color: _textSecondary,
@@ -431,7 +413,7 @@ class PdfExportService {
             .reduce((a, b) => a > b ? a : b)
             .clamp(1, 999);
 
-    const double maxBarHeight = 82.0;
+    const double maxBarHeight = 96.0;
 
     return pw.Container(
       padding: const pw.EdgeInsets.all(16),
@@ -464,7 +446,7 @@ class PdfExportService {
                 ),
             ],
           ),
-          pw.SizedBox(height: 14),
+          pw.SizedBox(height: 16),
           pw.Row(
             mainAxisAlignment: pw.MainAxisAlignment.spaceAround,
             crossAxisAlignment: pw.CrossAxisAlignment.end,
@@ -541,7 +523,7 @@ class PdfExportService {
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
           pw.Text(
-            'توزيع الأسباب المحتملة للبكاء',
+            'توزيع الأسباب المحتملة',
             style: const pw.TextStyle(
               fontSize: 13,
               fontWeight: pw.FontWeight.bold,
@@ -616,153 +598,5 @@ class PdfExportService {
         ],
       ),
     );
-  }
-
-  List<pw.Widget> _buildHistoryEventsList(List<HistoryEvent> events) {
-    if (events.isEmpty) {
-      return [
-        pw.Container(
-          padding: const pw.EdgeInsets.all(16),
-          decoration: pw.BoxDecoration(
-            color: _cardSurface,
-            borderRadius: pw.BorderRadius.circular(14),
-            border: pw.Border.all(color: _borderLight, width: 1),
-          ),
-          alignment: pw.Alignment.center,
-          child: pw.Text(
-            'لا توجد أحداث مسجّلة في السجل حالياً.',
-            style: const pw.TextStyle(
-              fontSize: 11,
-              color: _textSecondary,
-            ),
-          ),
-        ),
-      ];
-    }
-
-    return events.map((event) {
-      final isAlert = event.isAlert;
-      final badgeText = event.confidence ?? _eventTypeLabel(event.type);
-
-      return pw.Container(
-        margin: const pw.EdgeInsets.only(bottom: 8),
-        padding: const pw.EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: pw.BoxDecoration(
-          color: isAlert ? _alertBg : _cardSurface,
-          borderRadius: pw.BorderRadius.circular(14),
-          border: pw.Border.all(
-            color: isAlert ? _alertBorder : _borderLight,
-            width: 1,
-          ),
-        ),
-        child: pw.Row(
-          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-          crossAxisAlignment: pw.CrossAxisAlignment.center,
-          children: [
-            pw.Expanded(
-              child: pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: [
-                  pw.Row(
-                    children: [
-                      pw.Container(
-                        width: 8,
-                        height: 8,
-                        decoration: pw.BoxDecoration(
-                          color: isAlert ? _alert : _primary,
-                          shape: pw.BoxShape.circle,
-                        ),
-                      ),
-                      pw.SizedBox(width: 6),
-                      pw.Text(
-                        event.title,
-                        style: pw.TextStyle(
-                          fontSize: 11.5,
-                          fontWeight: pw.FontWeight.bold,
-                          color: isAlert ? _alert : _textPrimary,
-                        ),
-                      ),
-                    ],
-                  ),
-                  pw.SizedBox(height: 2),
-                  pw.Text(
-                    event.description,
-                    style: const pw.TextStyle(
-                      fontSize: 10,
-                      color: _textSecondary,
-                    ),
-                  ),
-                  pw.SizedBox(height: 3),
-                  pw.Text(
-                    _formatDateTime(event.timestamp),
-                    style: const pw.TextStyle(
-                      fontSize: 9.5,
-                      color: _textSecondary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            pw.SizedBox(width: 10),
-            pw.Container(
-              padding: const pw.EdgeInsets.symmetric(
-                horizontal: 9,
-                vertical: 4,
-              ),
-              decoration: pw.BoxDecoration(
-                color: isAlert ? _alert : _bgBeige,
-                borderRadius: pw.BorderRadius.circular(12),
-              ),
-              child: pw.Text(
-                badgeText,
-                style: pw.TextStyle(
-                  fontSize: 9.5,
-                  fontWeight: pw.FontWeight.bold,
-                  color: isAlert ? PdfColors.white : _textPrimary,
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
-    }).toList();
-  }
-
-  String _eventTypeLabel(HistoryEventType type) {
-    switch (type) {
-      case HistoryEventType.cry:
-        return 'بكاء';
-      case HistoryEventType.temperature:
-        return 'تنبيه حرارة';
-      case HistoryEventType.humidity:
-        return 'تنبيه رطوبة';
-      case HistoryEventType.unclassified:
-        return 'غير محدد';
-    }
-  }
-
-  String _formatDateTime(DateTime dt) {
-    const months = [
-      'يناير',
-      'فبراير',
-      'مارس',
-      'أبريل',
-      'مايو',
-      'يونيو',
-      'يوليو',
-      'أغسطس',
-      'سبتمبر',
-      'أكتوبر',
-      'نوفمبر',
-      'ديسمبر',
-    ];
-    final h = dt.hour > 12
-        ? dt.hour - 12
-        : dt.hour == 0
-            ? 12
-            : dt.hour;
-    final period = dt.hour >= 12 ? 'م' : 'ص';
-    final m = dt.minute.toString().padLeft(2, '0');
-    return '${dt.day} ${months[dt.month - 1]} ${dt.year} - $h:$m $period';
   }
 }

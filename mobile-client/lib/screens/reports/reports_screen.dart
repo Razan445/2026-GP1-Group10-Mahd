@@ -1,9 +1,9 @@
-import 'package:fl_chart/fl_chart.dart';
+﻿import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
 import '../../services/pdf_export_service.dart';
 import '../../widgets/app_snack_bar.dart';
-import '../history/history_screen.dart';
+import '../../widgets/primary_button.dart';
 
 // ──────────────────────────────────────────────
 //  Data models
@@ -168,7 +168,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
         causeStats: _causeStats
             .map((c) => ReportCauseItem(label: c.label, percentage: c.percentage))
             .toList(),
-        historyEvents: mockHistoryEvents,
       );
 
       if (!mounted) return;
@@ -201,10 +200,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // ── Header ───────────────────────────────────────────
-            _ReportsHeader(
-              isExporting: _isExportingPdf,
-              onExportPdf: _exportPdf,
-            ),
+            const _ReportsHeader(),
             const SizedBox(height: 14),
 
             // ── Period selector ──────────────────────────────────
@@ -235,6 +231,14 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
             // ── Cause distribution ────────────────────────────────
             const _CauseDistributionCard(),
+            const SizedBox(height: 24),
+
+            // ── Export report button ──────────────────────────────
+            PrimaryButton(
+              label: 'تصدير التقرير',
+              isLoading: _isExportingPdf,
+              onPressed: _exportPdf,
+            ),
           ],
         ),
       ),
@@ -246,13 +250,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
 //  Header
 // ──────────────────────────────────────────────
 class _ReportsHeader extends StatelessWidget {
-  const _ReportsHeader({
-    required this.isExporting,
-    required this.onExportPdf,
-  });
-
-  final bool isExporting;
-  final VoidCallback onExportPdf;
+  const _ReportsHeader();
 
   @override
   Widget build(BuildContext context) {
@@ -270,32 +268,6 @@ class _ReportsHeader extends StatelessWidget {
               style: AppTextStyles.helperText,
             ),
           ],
-        ),
-        // PDF export button (icon only — stub)
-        GestureDetector(
-          onTap: isExporting ? null : onExportPdf,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
-            decoration: BoxDecoration(
-              color: AppColors.cardSurface,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: AppColors.borderBeige, width: 1.2),
-            ),
-            child: isExporting
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: AppColors.alert,
-                    ),
-                  )
-                : const Icon(
-              Icons.picture_as_pdf_outlined,
-              size: 20,
-              color: AppColors.alert,
-            ),
-          ),
         ),
       ],
     );
