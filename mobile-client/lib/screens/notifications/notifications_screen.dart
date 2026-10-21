@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../services/local_settings_service.dart';
+import '../../widgets/app_snack_bar.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({
@@ -154,15 +155,11 @@ class _NotificationsScreenState
   }
 
   void _showSaveError() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'تعذر حفظ إعداد الإشعار',
-          textDirection: TextDirection.rtl,
-        ),
-        backgroundColor: AppColors.alert,
-      ),
-    );
+    AppSnackBar.show(
+        context,
+        'تعذر حفظ إعداد الإشعار',
+        type: AppSnackBarType.error,
+      );
   }
 
   @override

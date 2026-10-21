@@ -5,10 +5,11 @@ import '../../core/theme/app_theme.dart';
 import '../../services/audio_monitoring_service.dart';
 import '../../services/firestore_service.dart';
 import '../calendar/calendar_screen.dart';
-import '../child_development/child_development_screen.dart';
+import '../child_development/child_development_gate.dart';
 import '../settings/settings_screen.dart';
 import '../history/history_screen.dart';
 import '../reports/reports_screen.dart';
+import '../../widgets/app_snack_bar.dart';
 
 /// Screen 07 — الرئيسية (Home Screen)
 ///
@@ -81,27 +82,20 @@ class _HomeScreenState extends State<HomeScreen> {
         _isMonitoring = true;
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'بدأت جلسة المراقبة',
-            textDirection: TextDirection.rtl,
-          ),
-        ),
+      AppSnackBar.show(
+        context,
+        'بدأت جلسة المراقبة',
+        type: AppSnackBarType.info,
       );
     } on AudioMonitoringPermissionException {
       if (!mounted) {
         return;
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'نحتاج إذن الميكروفون لبدء المراقبة',
-            textDirection: TextDirection.rtl,
-          ),
-          backgroundColor: AppColors.alert,
-        ),
+      AppSnackBar.show(
+        context,
+        'نحتاج إذن الميكروفون لبدء المراقبة',
+        type: AppSnackBarType.error,
       );
     } catch (e) {
       debugPrint('Monitoring start error: $e');
@@ -120,14 +114,10 @@ class _HomeScreenState extends State<HomeScreen> {
         return;
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'تعذر بدء المراقبة، حاولي مرة أخرى',
-            textDirection: TextDirection.rtl,
-          ),
-          backgroundColor: AppColors.alert,
-        ),
+      AppSnackBar.show(
+        context,
+        'تعذر بدء المراقبة، حاولي مرة أخرى',
+        type: AppSnackBarType.error,
       );
     } finally {
       if (mounted) {
@@ -176,23 +166,16 @@ class _HomeScreenState extends State<HomeScreen> {
     });
 
     if (microphoneError == null && sessionError == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'تم إيقاف جلسة المراقبة',
-            textDirection: TextDirection.rtl,
-          ),
-        ),
+      AppSnackBar.show(
+        context,
+        'تم إيقاف جلسة المراقبة',
+        type: AppSnackBarType.info,
       );
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'توقفت المراقبة، لكن تعذر تحديث جزء من بيانات الجلسة',
-            textDirection: TextDirection.rtl,
-          ),
-          backgroundColor: AppColors.alert,
-        ),
+      AppSnackBar.show(
+        context,
+        'توقفت المراقبة، لكن تعذر تحديث جزء من بيانات الجلسة',
+        type: AppSnackBarType.error,
       );
     }
   }
@@ -1246,7 +1229,7 @@ class _ChildDevelopmentCard extends StatelessWidget {
               Navigator.of(context).push(
                 MaterialPageRoute(
                   builder: (context) =>
-                      const ChildDevelopmentScreen(),
+                      const ChildDevelopmentGate(),
                 ),
               );
             },

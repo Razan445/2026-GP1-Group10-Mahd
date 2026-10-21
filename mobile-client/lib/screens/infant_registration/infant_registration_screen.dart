@@ -4,6 +4,7 @@ import '../../core/routes/app_routes.dart';
 import '../../core/theme/app_theme.dart';
 import '../../services/firestore_service.dart';
 import '../../widgets/primary_button.dart';
+import '../../widgets/app_snack_bar.dart';
 
 /// Screen 06 — تسجيل بيانات الطفل (Infant Data Registration)
 ///
@@ -15,7 +16,16 @@ import '../../widgets/primary_button.dart';
 /// Saves the data to the current account document in Firestore,
 /// then routes to [HomeScreen].
 class InfantRegistrationScreen extends StatefulWidget {
-  const InfantRegistrationScreen({super.key});
+  const InfantRegistrationScreen({
+    super.key,
+    this.requiredForFeature = false,
+  });
+
+  /// When true the screen is opened from a feature (e.g. growth
+  /// tracking) that cannot work without the child data: no skip
+  /// button, a back button is shown, and no navigation happens after
+  /// saving (the parent rebuilds itself from the saved data).
+  final bool requiredForFeature;
 
   @override
   State<InfantRegistrationScreen> createState() =>
@@ -128,6 +138,20 @@ class _InfantRegistrationScreenState
         return;
       }
 
+      if (widget.requiredForFeature) {
+        setState(() {
+          _isLoading = false;
+        });
+
+        AppSnackBar.show(
+          context,
+          'تم حفظ بيانات الطفل بنجاح',
+          type: AppSnackBarType.success,
+        );
+
+        return;
+      }
+
       Navigator.pushReplacementNamed(
         context,
         AppRoutes.home,
@@ -152,15 +176,11 @@ class _InfantRegistrationScreenState
   }
 
   void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          message,
-          textDirection: TextDirection.rtl,
-        ),
-        backgroundColor: AppColors.alert,
-      ),
-    );
+    AppSnackBar.show(
+        context,
+        message,
+        type: AppSnackBarType.error,
+      );
   }
 
   // ─────────────────────────────────────────────────────────────
@@ -196,7 +216,28 @@ class _InfantRegistrationScreenState
               crossAxisAlignment:
                   CrossAxisAlignment.stretch,
               children: [
-                // No back button: the account was already created.
+                if (widget.requiredForFeature)
+                  Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: GestureDetector(
+                      onTap: () => Navigator.pop(context),
+                      child: Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF4E8DE),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        alignment: Alignment.center,
+                        child: const Icon(
+                          Icons.chevron_right,
+                          color: AppColors.textPrimary,
+                          size: 22,
+                        ),
+                      ),
+                    ),
+                  ),
+
                 const SizedBox(height: 22),
 
                 // ─────────────────────────────────────
@@ -210,7 +251,9 @@ class _InfantRegistrationScreenState
                 const SizedBox(height: 4),
 
                 Text(
-                  'أضيفي معلومات طفلك للبدء مع مهد',
+                  widget.requiredForFeature
+                      ? 'يجب إضافة بيانات طفلك أولًا للاستفادة من تتبع النمو'
+                      : 'أضيفي معلومات طفلك للبدء مع مهد',
                   style: AppTextStyles.helperText,
                 ),
 
@@ -387,6 +430,28 @@ class _InfantRegistrationScreenState
                   onPressed: _onSave,
                   isLoading: _isLoading,
                 ),
+
+                if (!widget.requiredForFeature) ...[
+                  const SizedBox(height: 10),
+
+                  TextButton(
+                    onPressed: _isLoading
+                        ? null
+                        : () {
+                            Navigator.pushReplacementNamed(
+                              context,
+                              AppRoutes.home,
+                            );
+                          },
+                    child: Text(
+                      'تخطي الآن',
+                      style: AppTextStyles.helperText.copyWith(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),

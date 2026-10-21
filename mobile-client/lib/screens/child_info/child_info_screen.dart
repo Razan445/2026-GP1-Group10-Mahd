@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../services/firestore_service.dart';
+import '../../widgets/app_snack_bar.dart';
 import '../../widgets/primary_button.dart';
 
 /// Settings sub-screen — معلومات الطفل
@@ -116,20 +117,15 @@ class _ChildInfoScreenState extends State<ChildInfoScreen> {
         '${date.year}';
   }
 
-  void _showMessage(String message, Color color) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message, textDirection: TextDirection.rtl),
-        backgroundColor: color,
-      ),
-    );
+  void _showMessage(String message, AppSnackBarType type) {
+    AppSnackBar.show(context, message, type: type);
   }
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
 
     if (_dateOfBirth == null) {
-      _showMessage('يرجى اختيار تاريخ الميلاد', AppColors.alert);
+      _showMessage('يرجى اختيار تاريخ الميلاد', AppSnackBarType.error);
       return;
     }
 
@@ -148,7 +144,7 @@ class _ChildInfoScreenState extends State<ChildInfoScreen> {
 
       setState(() => _isSaving = false);
 
-      _showMessage('تم حفظ معلومات الطفل', AppColors.success);
+      _showMessage('تم حفظ معلومات الطفل', AppSnackBarType.success);
     } catch (e) {
       debugPrint('Child info save error: $e');
 
@@ -156,7 +152,7 @@ class _ChildInfoScreenState extends State<ChildInfoScreen> {
 
       setState(() => _isSaving = false);
 
-      _showMessage('حدث خطأ أثناء حفظ بيانات الطفل', AppColors.alert);
+      _showMessage('حدث خطأ أثناء حفظ بيانات الطفل', AppSnackBarType.error);
     }
   }
 

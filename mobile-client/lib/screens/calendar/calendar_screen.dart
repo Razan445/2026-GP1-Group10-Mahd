@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../services/firestore_service.dart';
+import '../../widgets/app_snack_bar.dart';
 
 class CalendarScreen extends StatefulWidget {
   const CalendarScreen({super.key});
@@ -958,17 +959,12 @@ class _CalendarScreenState
         );
       });
 
-      ScaffoldMessenger.of(context)
-          .showSnackBar(
-        SnackBar(
-          content: Text(
-            appointment == null
+      AppSnackBar.show(
+        context,
+        appointment == null
                 ? 'تمت إضافة الموعد'
                 : 'تم تعديل الموعد',
-            textDirection:
-                TextDirection.rtl,
-          ),
-        ),
+        type: AppSnackBarType.info,
       );
     } on FirebaseException catch (e) {
       debugPrint(
@@ -979,17 +975,10 @@ class _CalendarScreenState
         return;
       }
 
-      ScaffoldMessenger.of(context)
-          .showSnackBar(
-        const SnackBar(
-          content: Text(
-            'حدث خطأ أثناء حفظ الموعد',
-            textDirection:
-                TextDirection.rtl,
-          ),
-          backgroundColor:
-              AppColors.alert,
-        ),
+      AppSnackBar.show(
+        context,
+        'حدث خطأ أثناء حفظ الموعد',
+        type: AppSnackBarType.error,
       );
     } catch (e) {
       debugPrint(
@@ -1000,17 +989,10 @@ class _CalendarScreenState
         return;
       }
 
-      ScaffoldMessenger.of(context)
-          .showSnackBar(
-        const SnackBar(
-          content: Text(
-            'حدث خطأ أثناء حفظ الموعد',
-            textDirection:
-                TextDirection.rtl,
-          ),
-          backgroundColor:
-              AppColors.alert,
-        ),
+      AppSnackBar.show(
+        context,
+        'حدث خطأ أثناء حفظ الموعد',
+        type: AppSnackBarType.error,
       );
     }
   }
@@ -1119,15 +1101,10 @@ class _CalendarScreenState
         return;
       }
 
-      ScaffoldMessenger.of(context)
-          .showSnackBar(
-        const SnackBar(
-          content: Text(
-            'تم حذف الموعد',
-            textDirection:
-                TextDirection.rtl,
-          ),
-        ),
+      AppSnackBar.show(
+        context,
+        'تم حذف الموعد',
+        type: AppSnackBarType.info,
       );
     } on FirebaseException catch (e) {
       debugPrint(
@@ -1138,17 +1115,10 @@ class _CalendarScreenState
         return;
       }
 
-      ScaffoldMessenger.of(context)
-          .showSnackBar(
-        const SnackBar(
-          content: Text(
-            'حدث خطأ أثناء حذف الموعد',
-            textDirection:
-                TextDirection.rtl,
-          ),
-          backgroundColor:
-              AppColors.alert,
-        ),
+      AppSnackBar.show(
+        context,
+        'حدث خطأ أثناء حذف الموعد',
+        type: AppSnackBarType.error,
       );
     } catch (e) {
       debugPrint(
@@ -1159,17 +1129,10 @@ class _CalendarScreenState
         return;
       }
 
-      ScaffoldMessenger.of(context)
-          .showSnackBar(
-        const SnackBar(
-          content: Text(
-            'حدث خطأ أثناء حذف الموعد',
-            textDirection:
-                TextDirection.rtl,
-          ),
-          backgroundColor:
-              AppColors.alert,
-        ),
+      AppSnackBar.show(
+        context,
+        'حدث خطأ أثناء حذف الموعد',
+        type: AppSnackBarType.error,
       );
     }
   }

@@ -5,6 +5,7 @@ import '../../core/routes/app_routes.dart';
 import '../../core/theme/app_theme.dart';
 import '../../widgets/app_text_field.dart';
 import '../../widgets/primary_button.dart';
+import '../../widgets/app_snack_bar.dart';
 
 /// Screen 05 — تسجيل الدخول (Login Screen)
 class LoginScreen extends StatefulWidget {
@@ -87,22 +88,20 @@ class _LoginScreenState extends State<LoginScreen> {
           message = 'حدث خطأ أثناء تسجيل الدخول';
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(message),
-          backgroundColor: AppColors.alert,
-        ),
+      AppSnackBar.show(
+        context,
+        message,
+        type: AppSnackBarType.error,
       );
     } catch (_) {
       if (!mounted) return;
 
       setState(() => _isLoading = false);
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('حدث خطأ غير متوقع، حاولي مرة أخرى'),
-          backgroundColor: AppColors.alert,
-        ),
+      AppSnackBar.show(
+        context,
+        'حدث خطأ غير متوقع، حاولي مرة أخرى',
+        type: AppSnackBarType.error,
       );
     }
   }

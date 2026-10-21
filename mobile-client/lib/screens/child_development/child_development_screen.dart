@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../services/firestore_service.dart';
+import '../../widgets/app_snack_bar.dart';
 
 class ChildDevelopmentScreen extends StatefulWidget {
   const ChildDevelopmentScreen({super.key});
@@ -407,13 +408,10 @@ class _ChildDevelopmentScreenState
     if (heightText.isEmpty ||
         weightText.isEmpty ||
         headText.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'فضلاً أدخلي جميع القياسات',
-            textDirection: TextDirection.rtl,
-          ),
-        ),
+      AppSnackBar.show(
+        context,
+        'فضلاً أدخلي جميع القياسات',
+        type: AppSnackBarType.info,
       );
 
       return;
@@ -431,13 +429,10 @@ class _ChildDevelopmentScreenState
     if (height == null ||
         weight == null ||
         headCircumference == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'فضلاً أدخلي قياسات صحيحة',
-            textDirection: TextDirection.rtl,
-          ),
-        ),
+      AppSnackBar.show(
+        context,
+        'فضلاً أدخلي قياسات صحيحة',
+        type: AppSnackBarType.info,
       );
 
       return;
@@ -478,17 +473,12 @@ class _ChildDevelopmentScreenState
         _isAddingNewMeasurement = false;
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            isNewMeasurement
+      AppSnackBar.show(
+        context,
+        isNewMeasurement
                 ? 'تم تسجيل القياس الجديد بنجاح'
                 : 'تم تعديل القياسات بنجاح',
-            textDirection: TextDirection.rtl,
-          ),
-          backgroundColor:
-              AppColors.success,
-        ),
+        type: AppSnackBarType.success,
       );
     } catch (e) {
       debugPrint(
@@ -499,15 +489,10 @@ class _ChildDevelopmentScreenState
         return;
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'حدث خطأ أثناء حفظ القياسات',
-            textDirection: TextDirection.rtl,
-          ),
-          backgroundColor:
-              AppColors.alert,
-        ),
+      AppSnackBar.show(
+        context,
+        'حدث خطأ أثناء حفظ القياسات',
+        type: AppSnackBarType.error,
       );
     }
   }

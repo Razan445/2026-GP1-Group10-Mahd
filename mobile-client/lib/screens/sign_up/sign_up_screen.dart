@@ -6,6 +6,7 @@ import '../../core/theme/app_theme.dart';
 import '../../services/firestore_service.dart';
 import '../../widgets/app_text_field.dart';
 import '../../widgets/primary_button.dart';
+import '../../widgets/app_snack_bar.dart';
 
 /// Screen 03 — إنشاء حساب (Sign-Up Screen)
 ///
@@ -69,11 +70,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
       setState(() => _isLoading = false);
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('تم إنشاء الحساب بنجاح!'),
-          backgroundColor: AppColors.success,
-        ),
+      AppSnackBar.show(
+        context,
+        'تم إنشاء الحساب بنجاح!',
+        type: AppSnackBarType.success,
       );
 
       Navigator.pushReplacementNamed(
@@ -112,11 +112,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
           message = 'حدث خطأ أثناء إنشاء الحساب';
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(message),
-          backgroundColor: AppColors.alert,
-        ),
+      AppSnackBar.show(
+        context,
+        message,
+        type: AppSnackBarType.error,
       );
     } on FirebaseException catch (e) {
       if (!mounted) return;
@@ -127,11 +126,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
         'FirebaseException: ${e.code} | ${e.message}',
       );
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('حدث خطأ أثناء حفظ بيانات الحساب'),
-          backgroundColor: AppColors.alert,
-        ),
+      AppSnackBar.show(
+        context,
+        'حدث خطأ أثناء حفظ بيانات الحساب',
+        type: AppSnackBarType.error,
       );
     } catch (e) {
       if (!mounted) return;
@@ -140,11 +138,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
       debugPrint('Unexpected sign-up error: $e');
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('حدث خطأ غير متوقع، حاولي مرة أخرى'),
-          backgroundColor: AppColors.alert,
-        ),
+      AppSnackBar.show(
+        context,
+        'حدث خطأ غير متوقع، حاولي مرة أخرى',
+        type: AppSnackBarType.error,
       );
     }
   }

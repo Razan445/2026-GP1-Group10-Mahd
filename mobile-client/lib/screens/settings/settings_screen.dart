@@ -6,6 +6,7 @@ import '../account/account_screen.dart';
 import '../child_info/child_info_screen.dart';
 import '../notifications/notifications_screen.dart';
 import '../privacy_security/privacy_security_screen.dart';
+import '../../widgets/app_snack_bar.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -168,14 +169,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         } on FirebaseAuthException {
                           if (!mounted) return;
 
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'حدث خطأ أثناء تسجيل الخروج',
-                              ),
-                              backgroundColor: AppColors.alert,
-                            ),
-                          );
+                          AppSnackBar.show(
+        context,
+        'حدث خطأ أثناء تسجيل الخروج',
+        type: AppSnackBarType.error,
+      );
                         }
                       },
                       style: ElevatedButton.styleFrom(

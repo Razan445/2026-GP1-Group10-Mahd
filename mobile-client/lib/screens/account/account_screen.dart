@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
 import '../../widgets/app_text_field.dart';
+import '../../widgets/app_snack_bar.dart';
 
 class AccountScreen extends StatefulWidget {
   const AccountScreen({
@@ -40,15 +41,11 @@ class _AccountScreenState extends State<AccountScreen> {
     // TODO:
     // Save account information to Firebase later.
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'تم حفظ التغييرات',
-          textDirection: TextDirection.rtl,
-        ),
-        backgroundColor: AppColors.success,
-      ),
-    );
+    AppSnackBar.show(
+        context,
+        'تم حفظ التغييرات',
+        type: AppSnackBarType.success,
+      );
   }
 
   @override
@@ -173,14 +170,11 @@ class _AccountScreenState extends State<AccountScreen> {
                 child: InkWell(
                   borderRadius: BorderRadius.circular(18),
                   onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                          'سيتم ربط تغيير كلمة المرور لاحقًا',
-                          textDirection: TextDirection.rtl,
-                        ),
-                      ),
-                    );
+                    AppSnackBar.show(
+        context,
+        'سيتم ربط تغيير كلمة المرور لاحقًا',
+        type: AppSnackBarType.info,
+      );
                   },
                   child: Ink(
                     height: 58,
