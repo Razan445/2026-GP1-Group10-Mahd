@@ -83,8 +83,8 @@ class _AccountScreenState extends State<AccountScreen> {
 
       final user = FirebaseAuth.instance.currentUser;
       final newEmail = _emailController.text.trim();
-      final emailChanged =
-          user != null && newEmail.toLowerCase() != (user.email ?? '').toLowerCase();
+      final emailChanged = user != null &&
+          newEmail.toLowerCase() != (user.email ?? '').toLowerCase();
 
       await user?.updateDisplayName(name);
       await FirestoreService.instance.updateAccountProfile(fullName: name);
@@ -142,7 +142,8 @@ class _AccountScreenState extends State<AccountScreen> {
 
       switch (e.code) {
         case 'requires-recent-login':
-          message = 'لتغيير البريد الإلكتروني سجّلي الدخول مرة أخرى ثم أعيدي المحاولة';
+          message =
+              'لتغيير البريد الإلكتروني سجّلي الدخول مرة أخرى ثم أعيدي المحاولة';
           break;
         case 'email-already-in-use':
           message = 'البريد الإلكتروني مستخدم مسبقًا';
@@ -196,9 +197,7 @@ class _AccountScreenState extends State<AccountScreen> {
                   _BackButton(
                     onTap: widget.onBack,
                   ),
-
                   const Spacer(),
-
                   Text(
                     'الحساب',
                     style: AppTextStyles.screenTitle.copyWith(
@@ -249,7 +248,6 @@ class _AccountScreenState extends State<AccountScreen> {
               AppTextField(
                 label: 'الاسم الكامل',
                 controller: _nameController,
-                hint: 'سارة العتيبي',
                 validator: Validators.arabicFullName,
               ),
 
@@ -261,7 +259,6 @@ class _AccountScreenState extends State<AccountScreen> {
               AppTextField(
                 label: 'البريد الإلكتروني',
                 controller: _emailController,
-                hint: 'sara@example.com',
                 keyboardType: TextInputType.emailAddress,
                 textDirection: TextDirection.ltr,
                 validator: (value) {
@@ -292,10 +289,10 @@ class _AccountScreenState extends State<AccountScreen> {
                   borderRadius: BorderRadius.circular(18),
                   onTap: () {
                     AppSnackBar.show(
-        context,
-        'سيتم ربط تغيير كلمة المرور لاحقًا',
-        type: AppSnackBarType.info,
-      );
+                      context,
+                      'سيتم ربط تغيير كلمة المرور لاحقًا',
+                      type: AppSnackBarType.info,
+                    );
                   },
                   child: Ink(
                     height: 58,
@@ -321,7 +318,6 @@ class _AccountScreenState extends State<AccountScreen> {
                             ),
                           ),
                         ),
-
                         const Icon(
                           Icons.chevron_left_rounded,
                           size: 20,

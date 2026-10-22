@@ -157,7 +157,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 // ── Email ────────────────────────────────────
                 AppTextField(
                   label: 'البريد الإلكتروني',
-                  hint: 'sara@example.com',
+                  hint: 'example@gmail.com',
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
                   textDirection: TextDirection.ltr,
@@ -244,8 +244,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                     GestureDetector(
-                      onTap: () =>
-                          Navigator.pushReplacementNamed(
+                      onTap: () => Navigator.pushReplacementNamed(
                         context,
                         AppRoutes.signUp,
                       ),

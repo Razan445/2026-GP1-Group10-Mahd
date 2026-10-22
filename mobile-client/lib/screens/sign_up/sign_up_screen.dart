@@ -182,35 +182,27 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     onTap: () => Navigator.pop(context),
                   ),
                 ),
-
                 const SizedBox(height: 18),
-
                 Text(
                   'إنشاء حساب',
                   style: AppTextStyles.screenTitle,
                 ),
-
                 const SizedBox(height: 4),
-
                 Text(
                   'أدخلي بياناتك للبدء مع مهد',
                   style: AppTextStyles.helperText,
                 ),
-
                 const SizedBox(height: 20),
-
                 AppTextField(
                   label: 'الاسم الكامل',
-                  hint: 'سارة العتيبي',
+                  hint: 'رزان القحطاني',
                   controller: _nameController,
                   validator: Validators.arabicFullName,
                 ),
-
                 const SizedBox(height: 14),
-
                 AppTextField(
                   label: 'البريد الإلكتروني',
-                  hint: 'sara@example.com',
+                  hint: 'example@gmail.com',
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
                   textDirection: TextDirection.ltr,
@@ -229,9 +221,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     return null;
                   },
                 ),
-
                 const SizedBox(height: 14),
-
                 AppTextField(
                   label: 'كلمة المرور',
                   hint: '••••••••',
@@ -241,9 +231,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       '٨ أحرف على الأقل تشمل حرفًا كبيرًا وصغيرًا ورقمًا ورمزًا خاصًا',
                   validator: Validators.password,
                 ),
-
                 const SizedBox(height: 14),
-
                 AppTextField(
                   label: 'تأكيد كلمة المرور',
                   hint: '••••••••',
@@ -261,17 +249,13 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     return null;
                   },
                 ),
-
                 const SizedBox(height: 24),
-
                 PrimaryButton(
                   label: 'إنشاء الحساب',
                   onPressed: _submit,
                   isLoading: _isLoading,
                 ),
-
                 const SizedBox(height: 12),
-
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [

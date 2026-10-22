@@ -172,9 +172,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     ),
                   ),
                 ),
-
                 const SizedBox(height: 28),
-
                 Center(
                   child: Image.asset(
                     'assets/images/mahd-logo.png',
@@ -182,16 +180,12 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     fit: BoxFit.contain,
                   ),
                 ),
-
                 const SizedBox(height: 28),
-
                 Text(
                   _sent ? 'تحقق من بريدك الإلكتروني' : 'نسيت كلمة المرور؟',
                   style: AppTextStyles.screenTitle,
                 ),
-
                 const SizedBox(height: 4),
-
                 Text(
                   _sent
                       ? 'أرسلنا رابط إعادة تعيين كلمة المرور إلى بريدك. '
@@ -200,12 +194,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                       : 'أدخلي بريدك الإلكتروني وسنرسل لك رابطًا لإعادة تعيين كلمة المرور',
                   style: AppTextStyles.helperText.copyWith(height: 1.7),
                 ),
-
                 const SizedBox(height: 22),
-
                 AppTextField(
                   label: 'البريد الإلكتروني',
-                  hint: 'sara@example.com',
+                  hint: 'example@gmail.com',
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
                   textDirection: TextDirection.ltr,
@@ -224,9 +216,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     return null;
                   },
                 ),
-
                 const SizedBox(height: 24),
-
                 PrimaryButton(
                   label: _sent
                       ? (_cooldown > 0
@@ -236,9 +226,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   onPressed: (_sent && _cooldown > 0) ? () {} : _send,
                   isLoading: _isLoading,
                 ),
-
                 const SizedBox(height: 12),
-
                 Center(
                   child: GestureDetector(
                     onTap: () => Navigator.pop(context),
