@@ -35,7 +35,7 @@ class MonitoringService {
 
   /// يستدعيها الـML model فقط عندما يكتشف بكاء حقيقي
   /// ويحدد السبب ونسبة الثقة.
-  Future<void> saveCryResult({
+  Future<void> saveCryData({
     required String cause,
     required double confidence,
   }) async {
@@ -45,7 +45,7 @@ class MonitoringService {
       throw const MonitoringSessionNotActiveException();
     }
 
-    await _firestoreService.createCryResult(
+    await _firestoreService.createCryData(
       sessionId: sessionId,
       cause: cause,
       confidence: confidence,

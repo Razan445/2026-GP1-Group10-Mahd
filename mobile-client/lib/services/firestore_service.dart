@@ -304,24 +304,24 @@ class FirestoreService {
   }
 
   // ═════════════════════════════════════════════════════════════
-  // CryResult — Weak Entity
-  // accounts/{accountId}/sessions/{sessionId}/cryResults/{autoId}
+  // CryData — Weak Entity
+  // accounts/{accountId}/sessions/{sessionId}/cryData/{autoId}
   // ═════════════════════════════════════════════════════════════
 
-  CollectionReference<Map<String, dynamic>> _cryResults(
+  CollectionReference<Map<String, dynamic>> _cryData(
     String sessionId,
   ) {
     return _sessions
         .doc(sessionId)
-        .collection('cryResults');
+        .collection('cryData');
   }
 
-  Future<String> createCryResult({
+  Future<String> createCryData({
     required String sessionId,
     required String cause,
     required double confidence,
   }) async {
-    final document = _cryResults(sessionId).doc();
+    final document = _cryData(sessionId).doc();
 
     await document.set({
       'cause': cause,
@@ -332,10 +332,10 @@ class FirestoreService {
     return document.id;
   }
 
-  Stream<QuerySnapshot<Map<String, dynamic>>> watchCryResults({
+  Stream<QuerySnapshot<Map<String, dynamic>>> watchCryData({
     required String sessionId,
   }) {
-    return _cryResults(sessionId).snapshots();
+    return _cryData(sessionId).snapshots();
   }
 
   // ═════════════════════════════════════════════════════════════
