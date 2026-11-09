@@ -171,7 +171,7 @@ class _ChildInfoScreenState extends State<ChildInfoScreen> {
               Row(
                 children: [
                   _BackButton(onTap: widget.onBack),
-                  const Spacer(),
+                  const SizedBox(width: 12),
                   Text(
                     'معلومات الطفل',
                     style: AppTextStyles.screenTitle.copyWith(

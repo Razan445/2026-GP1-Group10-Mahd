@@ -14,18 +14,6 @@ import '../reports/reports_screen.dart';
 import '../../widgets/app_snack_bar.dart';
 
 /// Screen 07 — الرئيسية (Home Screen)
-///
-/// Current state: **Idle** — monitoring is not active.
-///
-/// Layout:
-///  • Top bar  : logo + notification bell
-///  • Greeting : "مساء الخير، غرسه"
-///  • Center   : Idle monitoring card (mic icon, status text, start button)
-///  • Stats    : 3 small quick-stat tiles
-///  • Bottom   : [_MahdBottomNav] with 4 tabs
-///
-/// Navigation between tabs swaps the body content while keeping
-/// the BottomNavigationBar alive (IndexedStack).
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -40,6 +28,10 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isMonitoringActionInProgress = false;
   String? _activeSessionId;
 
+  Timer? _monitoringTimer;
+  int _currentSessionSeconds = 0;
+  int _completedSessionsSecondsToday = 0;
+
   // Greeting based on time-of-day
   String get _greeting {
     final hour = DateTime.now().hour;
@@ -47,6 +39,44 @@ class _HomeScreenState extends State<HomeScreen> {
     if (hour < 12) return 'صباح الخير';
     if (hour < 18) return 'مساء الخير';
     return 'مساء الخير';
+  }
+
+  int get _totalMonitoringSecondsToday =>
+      _completedSessionsSecondsToday + _currentSessionSeconds;
+
+  String get _formattedMonitoringDuration {
+    final total = _totalMonitoringSecondsToday;
+    if (!_isMonitoring && total == 0) {
+      return '—';
+    }
+    final hours = total ~/ 3600;
+    final minutes = (total % 3600) ~/ 60;
+    final seconds = total % 60;
+    final mm = minutes.toString().padLeft(2, '0');
+    final ss = seconds.toString().padLeft(2, '0');
+    if (hours > 0) {
+      final hh = hours.toString().padLeft(2, '0');
+      return '$hh:$mm:$ss';
+    }
+    return '$mm:$ss';
+  }
+
+  void _startElapsedTimer() {
+    _monitoringTimer?.cancel();
+    _currentSessionSeconds = 0;
+    _monitoringTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted || !_isMonitoring) return;
+      setState(() {
+        _currentSessionSeconds += 1;
+      });
+    });
+  }
+
+  void _stopElapsedTimer() {
+    _monitoringTimer?.cancel();
+    _monitoringTimer = null;
+    _completedSessionsSecondsToday += _currentSessionSeconds;
+    _currentSessionSeconds = 0;
   }
 
   Future<void> _toggleMonitoring() async {
@@ -71,8 +101,7 @@ class _HomeScreenState extends State<HomeScreen> {
       // A Firestore session is created only if microphone startup succeeds.
       await AudioMonitoringService.instance.startMonitoring();
 
-      final sessionId =
-          await FirestoreService.instance.startSession();
+      final sessionId = await FirestoreService.instance.startSession();
 
       if (!mounted) {
         await _cleanupMonitoringOnDispose(sessionId);
@@ -82,13 +111,8 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() {
         _activeSessionId = sessionId;
         _isMonitoring = true;
+        _startElapsedTimer();
       });
-
-      AppSnackBar.show(
-        context,
-        'بدأت جلسة المراقبة',
-        type: AppSnackBarType.info,
-      );
     } on AudioMonitoringPermissionException {
       if (!mounted) {
         return;
@@ -162,18 +186,13 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     setState(() {
+      _stopElapsedTimer();
       _isMonitoring = false;
       _activeSessionId = null;
       _isMonitoringActionInProgress = false;
     });
 
-    if (microphoneError == null && sessionError == null) {
-      AppSnackBar.show(
-        context,
-        'تم إيقاف جلسة المراقبة',
-        type: AppSnackBarType.info,
-      );
-    } else {
+    if (microphoneError != null || sessionError != null) {
       AppSnackBar.show(
         context,
         'توقفت المراقبة، لكن تعذر تحديث جزء من بيانات الجلسة',
@@ -206,6 +225,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    _monitoringTimer?.cancel();
     unawaited(
       _cleanupMonitoringOnDispose(_activeSessionId),
     );
@@ -334,8 +354,8 @@ class _HomeScreenState extends State<HomeScreen> {
             showReminderBadge: _hasImportantReminders,
             onBellTap: _showReminderDialog,
             isMonitoring: _isMonitoring,
-            isMonitoringActionInProgress:
-                _isMonitoringActionInProgress,
+            isMonitoringActionInProgress: _isMonitoringActionInProgress,
+            monitoringDurationText: _formattedMonitoringDuration,
             onMonitoringTap: _toggleMonitoring,
           ),
           const HistoryScreen(),
@@ -364,6 +384,7 @@ class _HomeTab extends StatelessWidget {
     required this.onBellTap,
     required this.isMonitoring,
     required this.isMonitoringActionInProgress,
+    required this.monitoringDurationText,
     required this.onMonitoringTap,
   });
 
@@ -372,6 +393,7 @@ class _HomeTab extends StatelessWidget {
   final VoidCallback onBellTap;
   final bool isMonitoring;
   final bool isMonitoringActionInProgress;
+  final String monitoringDurationText;
   final VoidCallback onMonitoringTap;
 
   @override
@@ -415,7 +437,7 @@ class _HomeTab extends StatelessWidget {
 
             const SizedBox(height: 20),
 
-            // ── Idle monitoring card ──────────────────────────
+            // ── Monitoring card (Dynamic Color & Pulse State) ──
             _IdleMonitoringCard(
               isMonitoring: isMonitoring,
               isLoading: isMonitoringActionInProgress,
@@ -430,7 +452,10 @@ class _HomeTab extends StatelessWidget {
             const SizedBox(height: 12),
 
             // ── Quick stats ───────────────────────────────────
-            _QuickStatsRow(),
+            _QuickStatsRow(
+              isMonitoring: isMonitoring,
+              durationText: monitoringDurationText,
+            ),
 
             const SizedBox(height: 14),
 
@@ -538,9 +563,9 @@ class _TopBar extends StatelessWidget {
   }
 }
 
-// ── Idle monitoring card ─────────────────────────────────────────
+// ── Dynamic monitoring card (Idle vs Active State) ──────────────
 
-class _IdleMonitoringCard extends StatelessWidget {
+class _IdleMonitoringCard extends StatefulWidget {
   const _IdleMonitoringCard({
     required this.isMonitoring,
     required this.isLoading,
@@ -552,64 +577,151 @@ class _IdleMonitoringCard extends StatelessWidget {
   final VoidCallback onMonitoringTap;
 
   @override
+  State<_IdleMonitoringCard> createState() => _IdleMonitoringCardState();
+}
+
+class _IdleMonitoringCardState extends State<_IdleMonitoringCard>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pulseController;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    );
+    if (widget.isMonitoring) {
+      _pulseController.repeat(reverse: true);
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _IdleMonitoringCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isMonitoring && !_pulseController.isAnimating) {
+      _pulseController.repeat(reverse: true);
+    } else if (!widget.isMonitoring && _pulseController.isAnimating) {
+      _pulseController.stop();
+      _pulseController.reset();
+    }
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 28),
+    final active = widget.isMonitoring;
+
+    // ألوان الحالة: الدافئة في وضع التوقف، والخضراء الحية المطمئنة في وضع التشغيل
+    const activeStart = Color(0xFFE7F2E5);
+    const activeEnd = Color(0xFFD4E7D1);
+    const activeAccent = Color(0xFF4F7A4A);
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 350),
+      curve: Curves.easeInOut,
+      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 24),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [AppColors.gradientStart, AppColors.gradientEnd],
-          stops: [0.0, 1.0],
+          colors: active
+              ? const [activeStart, activeEnd]
+              : const [AppColors.gradientStart, AppColors.gradientEnd],
+          stops: const [0.0, 1.0],
         ),
         borderRadius: BorderRadius.circular(28),
-        boxShadow: const [
+        border: Border.all(
+          color: active
+              ? AppColors.success.withValues(alpha: 0.55)
+              : Colors.transparent,
+          width: 1.5,
+        ),
+        boxShadow: [
           BoxShadow(
-            color: Color(0x24C88C64),
+            color: active
+                ? const Color(0x2864905E)
+                : const Color(0x24C88C64),
             blurRadius: 30,
-            offset: Offset(0, 12),
+            offset: const Offset(0, 12),
           ),
         ],
       ),
       child: Column(
         children: [
-          // ── Microphone icon container ─────────────────
-          Container(
-            width: 118,
-            height: 118,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.62),
-              shape: BoxShape.circle,
-            ),
-            alignment: Alignment.center,
-            child: Icon(
-              isMonitoring
-                  ? Icons.mic_rounded
-                  : Icons.mic_none_rounded,
-              size: 44,
-              color: AppColors.primary,
-            ),
+          // ── Microphone icon container with live pulse ──
+          AnimatedBuilder(
+            animation: _pulseController,
+            builder: (context, child) {
+              final pulseScale =
+                  active ? 1.0 + (_pulseController.value * 0.11) : 1.0;
+              return Stack(
+                alignment: Alignment.center,
+                children: [
+                  if (active)
+                    Transform.scale(
+                      scale: pulseScale,
+                      child: Container(
+                        width: 132,
+                        height: 132,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: AppColors.success.withValues(
+                            alpha: 0.18 * (1.0 - _pulseController.value * 0.4),
+                          ),
+                        ),
+                      ),
+                    ),
+                  Container(
+                    width: 114,
+                    height: 114,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.82),
+                      shape: BoxShape.circle,
+                      border: active
+                          ? Border.all(
+                              color: AppColors.success.withValues(alpha: 0.5),
+                              width: 2,
+                            )
+                          : null,
+                    ),
+                    alignment: Alignment.center,
+                    child: Icon(
+                      active ? Icons.graphic_eq_rounded : Icons.mic_none_rounded,
+                      size: 44,
+                      color: active ? activeAccent : AppColors.primary,
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
 
-          const SizedBox(height: 18),
+          const SizedBox(height: 16),
 
           // ── Status texts ──────────────────────────────
           Text(
-            isMonitoring
-                ? 'المراقبة قيد التشغيل'
-                : 'المراقبة متوقفة',
-            style: AppTextStyles.screenTitle.copyWith(fontSize: 17),
+            active ? 'المراقبة قيد التشغيل' : 'المراقبة متوقفة',
+            style: AppTextStyles.screenTitle.copyWith(
+              fontSize: 18,
+              color: active ? const Color(0xFF284325) : AppColors.textPrimary,
+            ),
           ),
 
-          const SizedBox(height: 6),
+          const SizedBox(height: 5),
 
           Text(
-            isMonitoring
+            active
                 ? 'مهد يستمع الآن إلى محيط طفلك ويعالج الصوت محليًا.'
                 : 'ابدئي الجلسة ليستمع مهد إلى محيط طفلك.',
             style: AppTextStyles.helperText.copyWith(
               fontSize: 12.5,
-              color: AppColors.textHelper,
+              color: active ? const Color(0xFF3E633A) : AppColors.textHelper,
             ),
             textAlign: TextAlign.center,
           ),
@@ -618,9 +730,9 @@ class _IdleMonitoringCard extends StatelessWidget {
 
           // ── Monitoring button ─────────────────────────
           _StartMonitoringButton(
-            isMonitoring: isMonitoring,
-            isLoading: isLoading,
-            onPressed: onMonitoringTap,
+            isMonitoring: active,
+            isLoading: widget.isLoading,
+            onPressed: widget.onMonitoringTap,
           ),
         ],
       ),
@@ -628,7 +740,7 @@ class _IdleMonitoringCard extends StatelessWidget {
   }
 }
 
-// ── Dark monitoring button ───────────────────────────────────────
+// ── Monitoring Action Button ─────────────────────────────────────
 
 class _StartMonitoringButton extends StatelessWidget {
   const _StartMonitoringButton({
@@ -643,15 +755,18 @@ class _StartMonitoringButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bgColor = isMonitoring
+        ? const Color(0xFF2F4A2C)
+        : AppColors.darkSurface;
+
     return SizedBox(
       height: 52,
       width: double.infinity,
       child: TextButton(
         onPressed: isLoading ? null : onPressed,
         style: TextButton.styleFrom(
-          backgroundColor: AppColors.darkSurface,
-          disabledBackgroundColor:
-              AppColors.darkSurface.withValues(alpha: 0.72),
+          backgroundColor: bgColor,
+          disabledBackgroundColor: bgColor.withValues(alpha: 0.72),
           foregroundColor: AppColors.darkSurfaceText,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(17),
@@ -667,13 +782,24 @@ class _StartMonitoringButton extends StatelessWidget {
                   color: AppColors.darkSurfaceText,
                 ),
               )
-            : Text(
-                isMonitoring
-                    ? 'إيقاف المراقبة'
-                    : 'بدء المراقبة',
-                style: AppTextStyles.buttonText.copyWith(
-                  color: AppColors.darkSurfaceText,
-                ),
+            : Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    isMonitoring
+                        ? Icons.stop_circle_outlined
+                        : Icons.play_circle_outline_rounded,
+                    size: 20,
+                    color: AppColors.darkSurfaceText,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    isMonitoring ? 'إيقاف المراقبة' : 'بدء المراقبة',
+                    style: AppTextStyles.buttonText.copyWith(
+                      color: AppColors.darkSurfaceText,
+                    ),
+                  ),
+                ],
               ),
       ),
     );
@@ -818,19 +944,29 @@ class _LatestCryEventCard extends StatelessWidget {
 // ── Quick stats row ──────────────────────────────────────────────
 
 class _QuickStatsRow extends StatelessWidget {
+  const _QuickStatsRow({
+    required this.isMonitoring,
+    required this.durationText,
+  });
+
+  final bool isMonitoring;
+  final String durationText;
+
   @override
   Widget build(BuildContext context) {
-    return const Row(
+    return Row(
       children: [
-        _StatTile(
+        const _StatTile(
           value: '٠',
           label: 'أحداث بكاء اليوم',
           valueColor: AppColors.primary,
         ),
-        SizedBox(width: 10),
+        const SizedBox(width: 10),
         _StatTile(
-          value: '—',
+          value: durationText,
           label: 'مدة المراقبة',
+          valueColor:
+              isMonitoring ? const Color(0xFF4F7A4A) : AppColors.textPrimary,
         ),
       ],
     );
@@ -914,10 +1050,9 @@ class _EnvironmentRow extends StatelessWidget {
             label: 'درجة الحرارة',
             value: _temperature.toStringAsFixed(0),
             unit: '°م',
-            accentColor:
-                (_temperature >= 18 && _temperature <= 26)
-                    ? AppColors.success
-                    : AppColors.alert,
+            accentColor: (_temperature >= 18 && _temperature <= 26)
+                ? AppColors.success
+                : AppColors.alert,
             iconBgColor: const Color(0xFFFDEADF),
           ),
         ),
@@ -998,8 +1133,7 @@ class _EnvCard extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Row(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.baseline,
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
                   textBaseline: TextBaseline.alphabetic,
                   children: [
                     Text(
@@ -1042,8 +1176,7 @@ class _EnvCard extends StatelessWidget {
                     vertical: 3,
                   ),
                   decoration: BoxDecoration(
-                    color:
-                        accentColor.withValues(alpha: 0.10),
+                    color: accentColor.withValues(alpha: 0.10),
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Text(
@@ -1143,8 +1276,7 @@ class _UpcomingCalendarCard extends StatelessWidget {
             onTap: () {
               Navigator.of(context).push(
                 MaterialPageRoute(
-                  builder: (context) =>
-                      const CalendarScreen(),
+                  builder: (context) => const CalendarScreen(),
                 ),
               );
             },
@@ -1240,8 +1372,7 @@ class _ChildDevelopmentCard extends StatelessWidget {
             onTap: () {
               Navigator.of(context).push(
                 MaterialPageRoute(
-                  builder: (context) =>
-                      const ChildDevelopmentGate(),
+                  builder: (context) => const ChildDevelopmentGate(),
                 ),
               );
             },
@@ -1272,8 +1403,7 @@ class _WhiteNoiseCard extends StatefulWidget {
   const _WhiteNoiseCard();
 
   @override
-  State<_WhiteNoiseCard> createState() =>
-      _WhiteNoiseCardState();
+  State<_WhiteNoiseCard> createState() => _WhiteNoiseCardState();
 }
 
 class _WhiteNoiseCardState extends State<_WhiteNoiseCard> {
@@ -1335,9 +1465,7 @@ class _WhiteNoiseCardState extends State<_WhiteNoiseCard> {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  _isWhiteNoiseOn
-                      ? 'قيد التشغيل'
-                      : 'متوقفة حالياً',
+                  _isWhiteNoiseOn ? 'قيد التشغيل' : 'متوقفة حالياً',
                   style: AppTextStyles.featureDesc.copyWith(
                     fontSize: 11,
                     color: _isWhiteNoiseOn
@@ -1505,10 +1633,7 @@ class _NavTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color =
-        isSelected
-            ? AppColors.primary
-            : AppColors.textSecondary;
+    final color = isSelected ? AppColors.primary : AppColors.textSecondary;
 
     return Expanded(
       child: GestureDetector(
@@ -1518,8 +1643,7 @@ class _NavTile extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             AnimatedContainer(
-              duration:
-                  const Duration(milliseconds: 200),
+              duration: const Duration(milliseconds: 200),
               padding: const EdgeInsets.symmetric(
                 horizontal: 14,
                 vertical: 6,
@@ -1527,8 +1651,7 @@ class _NavTile extends StatelessWidget {
               decoration: isSelected
                   ? BoxDecoration(
                       color: AppColors.iconBg,
-                      borderRadius:
-                          BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(12),
                     )
                   : null,
               child: Icon(
@@ -1543,9 +1666,7 @@ class _NavTile extends StatelessWidget {
               style: AppTextStyles.helperText.copyWith(
                 fontSize: 10.5,
                 color: color,
-                fontWeight: isSelected
-                    ? FontWeight.w600
-                    : FontWeight.w400,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
               ),
             ),
           ],

@@ -73,6 +73,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   }
 
   Future<void> _send() async {
+    if (_isLoading || (_sent && _cooldown > 0)) return;
     if (!_formKey.currentState!.validate()) return;
 
     FocusScope.of(context).unfocus();
@@ -200,6 +201,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   hint: 'example@gmail.com',
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
+                  textInputAction: TextInputAction.done,
+                  onFieldSubmitted: (_) => _send(),
                   textDirection: TextDirection.ltr,
                   validator: (v) {
                     if (v == null || v.trim().isEmpty) {

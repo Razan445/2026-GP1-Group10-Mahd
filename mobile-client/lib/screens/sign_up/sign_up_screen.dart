@@ -41,6 +41,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
   }
 
   Future<void> _submit() async {
+    if (_isLoading) return;
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
@@ -197,6 +198,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   label: 'الاسم الكامل',
                   hint: 'رزان القحطاني',
                   controller: _nameController,
+                  textInputAction: TextInputAction.next,
                   validator: Validators.arabicFullName,
                 ),
                 const SizedBox(height: 14),
@@ -205,6 +207,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   hint: 'example@gmail.com',
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
+                  textInputAction: TextInputAction.next,
                   textDirection: TextDirection.ltr,
                   validator: (v) {
                     if (v == null || v.trim().isEmpty) {
@@ -227,6 +230,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   hint: '••••••••',
                   isPassword: true,
                   controller: _passwordController,
+                  textInputAction: TextInputAction.next,
                   helperText:
                       '٨ أحرف على الأقل تشمل حرفًا كبيرًا وصغيرًا ورقمًا ورمزًا خاصًا',
                   validator: Validators.password,
@@ -237,6 +241,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   hint: '••••••••',
                   isPassword: true,
                   controller: _confirmController,
+                  textInputAction: TextInputAction.done,
+                  onFieldSubmitted: (_) => _submit(),
                   validator: (v) {
                     if (v == null || v.isEmpty) {
                       return 'تأكيد كلمة المرور مطلوب';

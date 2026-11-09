@@ -168,10 +168,6 @@ class _HistoryHeader extends StatelessWidget {
         children: [
           Text('السجل', style: AppTextStyles.screenTitle),
           const SizedBox(height: 4),
-          Text(
-            'جميع الأحداث المرصودة مع أوقاتها',
-            style: AppTextStyles.helperText,
-          ),
         ],
       ),
     );

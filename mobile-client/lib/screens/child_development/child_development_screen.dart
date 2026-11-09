@@ -710,7 +710,7 @@ class _PageHeader extends StatelessWidget {
           ),
         ),
 
-        const Spacer(),
+        const SizedBox(width: 12),
 
         Text(
           'نمو الطفل',
