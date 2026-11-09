@@ -10,7 +10,6 @@ import '../calendar/calendar_screen.dart';
 import '../child_development/child_development_gate.dart';
 import '../settings/settings_screen.dart';
 import '../history/history_screen.dart';
-import '../reports/reports_screen.dart';
 import '../../widgets/app_snack_bar.dart';
 
 /// Screen 07 — الرئيسية (Home Screen)
@@ -259,7 +258,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             content: Text(
-              'لديك تذكيرات تحتاج إلى انتباهك. يمكنك عرضها في السجل.',
+              'لديك تذكيرات تحتاج إلى انتباهك. يمكنك عرضها في التقويم.',
               textAlign: TextAlign.center,
               style: AppTextStyles.helperText.copyWith(
                 fontSize: 11.5,
@@ -309,7 +308,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         Navigator.of(dialogContext).pop();
 
                         setState(() {
-                          _currentIndex = 1;
+                          _currentIndex = 2;
                         });
                       },
                       style: ElevatedButton.styleFrom(
@@ -360,7 +359,7 @@ class _HomeScreenState extends State<HomeScreen> {
             onMonitoringTap: _toggleMonitoring,
           ),
           const HistoryScreen(),
-          const ReportsScreen(),
+          const CalendarScreen(),
           const SettingsScreen(),
         ],
       ),
@@ -458,11 +457,6 @@ class _HomeTab extends StatelessWidget {
               isMonitoring: isMonitoring,
               durationText: monitoringDurationText,
             ),
-
-            const SizedBox(height: 14),
-
-            // ── Upcoming calendar preview ─────────────────────
-            const _UpcomingCalendarCard(),
 
             const SizedBox(height: 14),
 
@@ -641,9 +635,7 @@ class _IdleMonitoringCardState extends State<_IdleMonitoringCard>
         ),
         boxShadow: [
           BoxShadow(
-            color: active
-                ? const Color(0x2864905E)
-                : const Color(0x24C88C64),
+            color: active ? const Color(0x2864905E) : const Color(0x24C88C64),
             blurRadius: 30,
             offset: const Offset(0, 12),
           ),
@@ -689,7 +681,9 @@ class _IdleMonitoringCardState extends State<_IdleMonitoringCard>
                     ),
                     alignment: Alignment.center,
                     child: Icon(
-                      active ? Icons.graphic_eq_rounded : Icons.mic_none_rounded,
+                      active
+                          ? Icons.graphic_eq_rounded
+                          : Icons.mic_none_rounded,
                       size: 44,
                       color: active ? activeAccent : AppColors.primary,
                     ),
@@ -752,9 +746,8 @@ class _StartMonitoringButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bgColor = isMonitoring
-        ? const Color(0xFF2F4A2C)
-        : AppColors.darkSurface;
+    final bgColor =
+        isMonitoring ? const Color(0xFF2F4A2C) : AppColors.darkSurface;
 
     return SizedBox(
       height: 52,
@@ -850,9 +843,7 @@ class _LatestCryEventCard extends StatelessWidget {
                   color: AppColors.primary,
                 ),
               ),
-
               const SizedBox(width: 12),
-
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -876,7 +867,6 @@ class _LatestCryEventCard extends StatelessWidget {
                   ],
                 ),
               ),
-
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 9,
@@ -898,22 +888,12 @@ class _LatestCryEventCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 4),
-                    Text(
-                      'محيط مناسب',
-                      style: AppTextStyles.featureDesc.copyWith(
-                        fontSize: 10,
-                        color: const Color(0xFF4F7A4A),
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
                   ],
                 ),
               ),
             ],
           ),
-
           const SizedBox(height: 10),
-
           Container(
             padding: const EdgeInsets.symmetric(
               horizontal: 12,
@@ -968,7 +948,6 @@ class _LatestCryEventCard extends StatelessWidget {
                     ),
                   ],
                 ),
-
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 8),
                   child: Divider(
@@ -977,7 +956,6 @@ class _LatestCryEventCard extends StatelessWidget {
                     color: AppColors.borderBeige,
                   ),
                 ),
-
                 Row(
                   children: [
                     Expanded(
@@ -1140,295 +1118,6 @@ class _StatTile extends StatelessWidget {
   }
 }
 
-// ── Environment sensors (Temperature & Humidity) ─────────────────
-
-///
-/// Displays two side-by-side cards showing room temperature and
-/// humidity. Values are **mocked** until the hardware is connected.
-class _EnvironmentRow extends StatelessWidget {
-  const _EnvironmentRow();
-
-  /// 🔧 MOCK — replace with real sensor data when hardware is ready.
-  static const double _temperature = 24;
-  static const int _humidity = 45;
-
-  @override
-  Widget build(BuildContext context) {
-    const isTempOptimal = _temperature >= 18 && _temperature <= 26;
-    const isHumidityOptimal = _humidity >= 30 && _humidity <= 60;
-
-    return Row(
-      children: [
-        Expanded(
-          child: _EnvCard(
-            icon: Icons.thermostat_rounded,
-            label: 'درجة الحرارة',
-            value: _temperature.toStringAsFixed(0),
-            unit: '°م',
-            isOptimal: isTempOptimal,
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _EnvCard(
-            icon: Icons.water_drop_outlined,
-            label: 'الرطوبة',
-            value: '$_humidity',
-            unit: '%',
-            isOptimal: isHumidityOptimal,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _EnvCard extends StatelessWidget {
-  const _EnvCard({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.unit,
-    required this.isOptimal,
-  });
-
-  final IconData icon;
-  final String label;
-  final String value;
-  final String unit;
-  final bool isOptimal;
-
-  @override
-  Widget build(BuildContext context) {
-    final statusColor =
-        isOptimal ? const Color(0xFF4F7A4A) : AppColors.alert;
-    final statusBgColor =
-        isOptimal ? const Color(0xFFEAF3E8) : AppColors.alertBg;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 16,
-        vertical: 16,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.cardSurface,
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0D785037),
-            blurRadius: 14,
-            offset: Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: AppColors.iconBg,
-              borderRadius: BorderRadius.circular(14),
-            ),
-            alignment: Alignment.center,
-            child: Icon(
-              icon,
-              size: 22,
-              color: AppColors.primary,
-            ),
-          ),
-
-          const SizedBox(width: 12),
-
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.baseline,
-                  textBaseline: TextBaseline.alphabetic,
-                  children: [
-                    Text(
-                      value,
-                      style: AppTextStyles.screenTitle.copyWith(
-                        fontSize: 22,
-                        color: AppColors.textPrimary,
-                        height: 1.1,
-                      ),
-                    ),
-                    const SizedBox(width: 3),
-                    Text(
-                      unit,
-                      style: AppTextStyles.helperText.copyWith(
-                        fontSize: 12,
-                        color: AppColors.textSecondary,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 3),
-
-                Text(
-                  label,
-                  style: AppTextStyles.featureDesc.copyWith(
-                    fontSize: 11,
-                    color: AppColors.textSecondary,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-
-                const SizedBox(height: 5),
-
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 3,
-                  ),
-                  decoration: BoxDecoration(
-                    color: statusBgColor,
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 5,
-                        height: 5,
-                        decoration: BoxDecoration(
-                          color: statusColor,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        isOptimal ? 'مناسب' : 'غير مناسب',
-                        style: AppTextStyles.featureDesc.copyWith(
-                          fontSize: 10,
-                          color: statusColor,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Upcoming calendar preview ────────────────────────────────────
-
-class _UpcomingCalendarCard extends StatelessWidget {
-  const _UpcomingCalendarCard();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 16,
-        vertical: 14,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.cardSurface,
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0D785037),
-            blurRadius: 14,
-            offset: Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: AppColors.iconBg,
-              borderRadius: BorderRadius.circular(14),
-            ),
-            alignment: Alignment.center,
-            child: const Icon(
-              Icons.calendar_month_rounded,
-              size: 22,
-              color: AppColors.primary,
-            ),
-          ),
-
-          const SizedBox(width: 12),
-
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'الموعد القادم',
-                  style: AppTextStyles.cardTitle.copyWith(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  'موعد تطعيم',
-                  style: AppTextStyles.featureDesc.copyWith(
-                    fontSize: 11,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  '5 أكتوبر • 10:30 ص',
-                  style: AppTextStyles.featureDesc.copyWith(
-                    fontSize: 10.5,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          InkWell(
-            borderRadius: BorderRadius.circular(8),
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (context) => const CalendarScreen(),
-                ),
-              );
-            },
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 4,
-                vertical: 6,
-              ),
-              child: Text(
-                'عرض التقويم',
-                style: AppTextStyles.featureDesc.copyWith(
-                  fontSize: 10.5,
-                  color: AppColors.primary,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 // ── Child development preview ───────────────────────────────────
 
 class _ChildDevelopmentCard extends StatelessWidget {
@@ -1468,9 +1157,7 @@ class _ChildDevelopmentCard extends StatelessWidget {
               color: AppColors.primary,
             ),
           ),
-
           const SizedBox(width: 12),
-
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1494,7 +1181,6 @@ class _ChildDevelopmentCard extends StatelessWidget {
               ],
             ),
           ),
-
           InkWell(
             borderRadius: BorderRadius.circular(8),
             onTap: () {
@@ -1571,14 +1257,11 @@ class _WhiteNoiseCardState extends State<_WhiteNoiseCard> {
             child: Icon(
               Icons.graphic_eq_rounded,
               size: 22,
-              color: _isWhiteNoiseOn
-                  ? AppColors.primary
-                  : AppColors.textSecondary,
+              color:
+                  _isWhiteNoiseOn ? AppColors.primary : AppColors.textSecondary,
             ),
           ),
-
           const SizedBox(width: 12),
-
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1604,7 +1287,6 @@ class _WhiteNoiseCardState extends State<_WhiteNoiseCard> {
               ],
             ),
           ),
-
           Switch(
             value: _isWhiteNoiseOn,
             onChanged: (value) {
@@ -1688,8 +1370,8 @@ class _MahdBottomNav extends StatelessWidget {
       label: 'السجل',
     ),
     _NavItem(
-      icon: Icons.bar_chart_rounded,
-      label: 'التقارير',
+      icon: Icons.calendar_month_rounded,
+      label: 'التقويم',
     ),
     _NavItem(
       icon: Icons.settings_outlined,

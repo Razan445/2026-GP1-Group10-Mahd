@@ -1689,28 +1689,32 @@ class _CalendarHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final canPop = Navigator.of(context).canPop();
+
     return Row(
       children: [
-        Container(
-          width: 42,
-          height: 42,
-          decoration: BoxDecoration(
-            color: AppColors.cardSurface,
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: IconButton(
-            padding: EdgeInsets.zero,
-            icon: const Icon(
-              Icons.chevron_right_rounded,
-              size: 24,
-              color: AppColors.primary,
+        if (canPop) ...[
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: AppColors.cardSurface,
+              borderRadius: BorderRadius.circular(14),
             ),
-            onPressed: () {
-              Navigator.of(context).maybePop();
-            },
+            child: IconButton(
+              padding: EdgeInsets.zero,
+              icon: const Icon(
+                Icons.chevron_right_rounded,
+                size: 24,
+                color: AppColors.primary,
+              ),
+              onPressed: () {
+                Navigator.of(context).maybePop();
+              },
+            ),
           ),
-        ),
-        const SizedBox(width: 12),
+          const SizedBox(width: 12),
+        ],
         Text(
           'التقويم والتذكيرات',
           style: AppTextStyles.cardTitle.copyWith(
