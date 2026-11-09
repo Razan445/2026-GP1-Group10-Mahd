@@ -461,11 +461,6 @@ class _HomeTab extends StatelessWidget {
 
             const SizedBox(height: 14),
 
-            // ── Environment sensors ───────────────────────────
-            const _EnvironmentRow(),
-
-            const SizedBox(height: 14),
-
             // ── Upcoming calendar preview ─────────────────────
             const _UpcomingCalendarCard(),
 
@@ -813,10 +808,12 @@ class _StartMonitoringButton extends StatelessWidget {
 class _LatestCryEventCard extends StatelessWidget {
   const _LatestCryEventCard();
 
-  /// 🔧 MOCK — static classification values until AI inference is connected.
+  /// 🔧 MOCK — static classification & sensor values until AI inference is connected.
   static const String _cause = 'جوع';
   static const String _confidence = '٩٢٪';
   static const String _timestamp = 'منذ ١٥ دقيقة';
+  static const String _temperature = '24°م';
+  static const String _humidity = '45%';
 
   @override
   Widget build(BuildContext context) {
@@ -879,6 +876,39 @@ class _LatestCryEventCard extends StatelessWidget {
                   ],
                 ),
               ),
+
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 9,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEAF3E8),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 5,
+                      height: 5,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF4F7A4A),
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      'محيط مناسب',
+                      style: AppTextStyles.featureDesc.copyWith(
+                        fontSize: 10,
+                        color: const Color(0xFF4F7A4A),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
 
@@ -887,49 +917,129 @@ class _LatestCryEventCard extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(
               horizontal: 12,
-              vertical: 8,
+              vertical: 9,
             ),
             decoration: BoxDecoration(
               color: AppColors.backgroundCream,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            child: Column(
               children: [
                 Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      'السبب المحتمل: ',
-                      style: AppTextStyles.featureDesc.copyWith(
-                        fontSize: 11.5,
-                        color: AppColors.textSecondary,
-                      ),
+                    Row(
+                      children: [
+                        Text(
+                          'السبب المحتمل: ',
+                          style: AppTextStyles.featureDesc.copyWith(
+                            fontSize: 11.5,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                        Text(
+                          _cause,
+                          style: AppTextStyles.cardTitle.copyWith(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                      ],
                     ),
-                    Text(
-                      _cause,
-                      style: AppTextStyles.cardTitle.copyWith(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary,
-                      ),
+                    Row(
+                      children: [
+                        Text(
+                          'نسبة التأكد: ',
+                          style: AppTextStyles.featureDesc.copyWith(
+                            fontSize: 11.5,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                        Text(
+                          _confidence,
+                          style: AppTextStyles.cardTitle.copyWith(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
+
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 8),
+                  child: Divider(
+                    height: 1,
+                    thickness: 1,
+                    color: AppColors.borderBeige,
+                  ),
+                ),
+
                 Row(
                   children: [
-                    Text(
-                      'نسبة التأكد: ',
-                      style: AppTextStyles.featureDesc.copyWith(
-                        fontSize: 11.5,
-                        color: AppColors.textSecondary,
+                    Expanded(
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.thermostat_rounded,
+                            size: 15,
+                            color: AppColors.primary,
+                          ),
+                          const SizedBox(width: 5),
+                          Text(
+                            'درجة الحرارة: ',
+                            style: AppTextStyles.featureDesc.copyWith(
+                              fontSize: 11,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                          Text(
+                            _temperature,
+                            style: AppTextStyles.cardTitle.copyWith(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    Text(
-                      _confidence,
-                      style: AppTextStyles.cardTitle.copyWith(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.primary,
+                    Container(
+                      width: 1,
+                      height: 14,
+                      color: AppColors.borderBeige,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.water_drop_outlined,
+                            size: 15,
+                            color: Color(0xFF4F7A4A),
+                          ),
+                          const SizedBox(width: 5),
+                          Text(
+                            'الرطوبة: ',
+                            style: AppTextStyles.featureDesc.copyWith(
+                              fontSize: 11,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                          Text(
+                            _humidity,
+                            style: AppTextStyles.cardTitle.copyWith(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -1044,6 +1154,9 @@ class _EnvironmentRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    const isTempOptimal = _temperature >= 18 && _temperature <= 26;
+    const isHumidityOptimal = _humidity >= 30 && _humidity <= 60;
+
     return Row(
       children: [
         Expanded(
@@ -1052,21 +1165,17 @@ class _EnvironmentRow extends StatelessWidget {
             label: 'درجة الحرارة',
             value: _temperature.toStringAsFixed(0),
             unit: '°م',
-            accentColor: (_temperature >= 18 && _temperature <= 26)
-                ? AppColors.success
-                : AppColors.alert,
-            iconBgColor: const Color(0xFFFDEADF),
+            isOptimal: isTempOptimal,
           ),
         ),
         const SizedBox(width: 12),
-        const Expanded(
+        Expanded(
           child: _EnvCard(
             icon: Icons.water_drop_outlined,
             label: 'الرطوبة',
             value: '$_humidity',
             unit: '%',
-            accentColor: AppColors.success,
-            iconBgColor: Color(0xFFEDF2EB),
+            isOptimal: isHumidityOptimal,
           ),
         ),
       ],
@@ -1080,19 +1189,22 @@ class _EnvCard extends StatelessWidget {
     required this.label,
     required this.value,
     required this.unit,
-    required this.accentColor,
-    required this.iconBgColor,
+    required this.isOptimal,
   });
 
   final IconData icon;
   final String label;
   final String value;
   final String unit;
-  final Color accentColor;
-  final Color iconBgColor;
+  final bool isOptimal;
 
   @override
   Widget build(BuildContext context) {
+    final statusColor =
+        isOptimal ? const Color(0xFF4F7A4A) : AppColors.alert;
+    final statusBgColor =
+        isOptimal ? const Color(0xFFEAF3E8) : AppColors.alertBg;
+
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: 16,
@@ -1116,14 +1228,14 @@ class _EnvCard extends StatelessWidget {
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: iconBgColor,
+              color: AppColors.iconBg,
               borderRadius: BorderRadius.circular(14),
             ),
             alignment: Alignment.center,
             child: Icon(
               icon,
               size: 22,
-              color: accentColor,
+              color: AppColors.primary,
             ),
           ),
 
@@ -1142,17 +1254,17 @@ class _EnvCard extends StatelessWidget {
                       value,
                       style: AppTextStyles.screenTitle.copyWith(
                         fontSize: 22,
-                        color: accentColor,
+                        color: AppColors.textPrimary,
                         height: 1.1,
                       ),
                     ),
-                    const SizedBox(width: 2),
+                    const SizedBox(width: 3),
                     Text(
                       unit,
                       style: AppTextStyles.helperText.copyWith(
                         fontSize: 12,
-                        color: accentColor,
-                        fontWeight: FontWeight.w500,
+                        color: AppColors.textSecondary,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],
@@ -1170,7 +1282,7 @@ class _EnvCard extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
 
-                const SizedBox(height: 4),
+                const SizedBox(height: 5),
 
                 Container(
                   padding: const EdgeInsets.symmetric(
@@ -1178,16 +1290,30 @@ class _EnvCard extends StatelessWidget {
                     vertical: 3,
                   ),
                   decoration: BoxDecoration(
-                    color: accentColor.withValues(alpha: 0.10),
+                    color: statusBgColor,
                     borderRadius: BorderRadius.circular(999),
                   ),
-                  child: Text(
-                    'مناسب',
-                    style: AppTextStyles.featureDesc.copyWith(
-                      fontSize: 10,
-                      color: accentColor,
-                      fontWeight: FontWeight.w600,
-                    ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 5,
+                        height: 5,
+                        decoration: BoxDecoration(
+                          color: statusColor,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        isOptimal ? 'مناسب' : 'غير مناسب',
+                        style: AppTextStyles.featureDesc.copyWith(
+                          fontSize: 10,
+                          color: statusColor,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
