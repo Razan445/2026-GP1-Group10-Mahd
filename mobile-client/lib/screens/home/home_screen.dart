@@ -32,12 +32,13 @@ class _HomeScreenState extends State<HomeScreen> {
   int _currentSessionSeconds = 0;
   int _completedSessionsSecondsToday = 0;
 
-  // Greeting based on time-of-day
+  // Greeting based on time-of-day:
+  // 4:00 AM .. 11:59 AM -> صباح الخير
+  // 12:00 PM .. 3:59 AM -> مساء الخير
   String get _greeting {
     final hour = DateTime.now().hour;
 
-    if (hour < 12) return 'صباح الخير';
-    if (hour < 18) return 'مساء الخير';
+    if (hour >= 4 && hour < 12) return 'صباح الخير';
     return 'مساء الخير';
   }
 
@@ -416,13 +417,14 @@ class _HomeTab extends StatelessWidget {
             StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
               stream: FirestoreService.instance.watchAccount(),
               builder: (context, snapshot) {
-                final name =
+                final fullName =
                     (snapshot.data?.data()?['fullName'] as String?)?.trim();
+                final firstName = (fullName == null || fullName.isEmpty)
+                    ? ''
+                    : fullName.split(RegExp(r'\s+')).first;
 
                 return Text(
-                  (name == null || name.isEmpty)
-                      ? greeting
-                      : '$greeting، $name',
+                  firstName.isEmpty ? greeting : '$greeting، $firstName',
                   style: AppTextStyles.screenTitle.copyWith(fontSize: 21),
                 );
               },

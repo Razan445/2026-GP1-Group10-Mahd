@@ -5,7 +5,7 @@ import '../../core/theme/app_theme.dart';
 //  Data model
 // ──────────────────────────────────────────────
 
-enum HistoryEventType { cry, temperature, humidity, unclassified }
+enum HistoryEventType { cry, unclassified }
 
 class HistoryEvent {
   const HistoryEvent({
@@ -13,8 +13,9 @@ class HistoryEvent {
     required this.title,
     required this.description,
     required this.timestamp,
+    required this.temperature,
+    required this.humidity,
     this.confidence,
-    this.isAlert = false,
   });
 
   final HistoryEventType type;
@@ -22,11 +23,14 @@ class HistoryEvent {
   final String description;
   final DateTime timestamp;
 
+  /// Room temperature recorded at the moment of the cry event (e.g. "24°م")
+  final String temperature;
+
+  /// Room humidity recorded at the moment of the cry event (e.g. "45%")
+  final String humidity;
+
   /// Optional confidence percentage label (e.g. "٨٦٪")
   final String? confidence;
-
-  /// True = the card gets the red-alert treatment
-  final bool isAlert;
 }
 
 // ──────────────────────────────────────────────
@@ -39,6 +43,8 @@ final List<HistoryEvent> _mockEvents = [
     title: 'بكاء - الجوع',
     description: 'نمط بكاء منتظم يشير إلى الجوع',
     timestamp: DateTime(2025, 3, 12, 10, 42),
+    temperature: '24°م',
+    humidity: '45%',
     confidence: '٨٦٪',
   ),
   HistoryEvent(
@@ -46,6 +52,8 @@ final List<HistoryEvent> _mockEvents = [
     title: 'بكاء - غير محدد',
     description: 'صوت غير محدد الفئة',
     timestamp: DateTime(2025, 3, 12, 8, 15),
+    temperature: '23°م',
+    humidity: '48%',
     confidence: 'أقل من ٣٥٪',
   ),
   // ─── Yesterday ───────────────────────────────────────────────
@@ -54,6 +62,8 @@ final List<HistoryEvent> _mockEvents = [
     title: 'بكاء - ألم بطن أو غازات',
     description: 'نمط بكاء يرتبط بآلام البطن',
     timestamp: DateTime(2025, 3, 11, 23, 0),
+    temperature: '25°م',
+    humidity: '42%',
     confidence: '٢٧٪',
   ),
   HistoryEvent(
@@ -61,6 +71,8 @@ final List<HistoryEvent> _mockEvents = [
     title: 'بكاء - تعب ونعاس',
     description: 'نمط بكاء يدل على التعب والنعاس',
     timestamp: DateTime(2025, 3, 11, 21, 5),
+    temperature: '23°م',
+    humidity: '50%',
     confidence: '٣٨٪',
   ),
   // ─── Two days ago ────────────────────────────────────────────
@@ -69,61 +81,21 @@ final List<HistoryEvent> _mockEvents = [
     title: 'بكاء - الجوع',
     description: 'نمط بكاء منتظم يشير إلى الجوع',
     timestamp: DateTime(2025, 3, 10, 14, 30),
+    temperature: '24°م',
+    humidity: '46%',
     confidence: '٩١٪',
-  ),
-  HistoryEvent(
-    type: HistoryEventType.temperature,
-    title: 'تنبيه درجة الحرارة',
-    description: 'ارتفاع في درجة حرارة الغرفة',
-    timestamp: DateTime(2025, 3, 10, 11, 45),
-    isAlert: true,
-  ),
-  HistoryEvent(
-    type: HistoryEventType.humidity,
-    title: 'تنبيه الرطوبة',
-    description: 'انخفاض في نسبة الرطوبة في الغرفة',
-    timestamp: DateTime(2025, 3, 10, 9, 20),
-    isAlert: true,
   ),
 ];
 
 // ──────────────────────────────────────────────
 //  Screen
 // ──────────────────────────────────────────────
-enum _HistoryFilter { all, cry, temperature, humidity }
-
-class HistoryScreen extends StatefulWidget {
+class HistoryScreen extends StatelessWidget {
   const HistoryScreen({super.key});
 
   @override
-  State<HistoryScreen> createState() => _HistoryScreenState();
-}
-
-class _HistoryScreenState extends State<HistoryScreen> {
-  _HistoryFilter _filter = _HistoryFilter.all;
-
-  List<HistoryEvent> get _filtered {
-    switch (_filter) {
-      case _HistoryFilter.cry:
-        return _mockEvents
-            .where((e) => e.type == HistoryEventType.cry)
-            .toList();
-      case _HistoryFilter.temperature:
-        return _mockEvents
-            .where((e) => e.type == HistoryEventType.temperature)
-            .toList();
-      case _HistoryFilter.humidity:
-        return _mockEvents
-            .where((e) => e.type == HistoryEventType.humidity)
-            .toList();
-      case _HistoryFilter.all:
-        return _mockEvents;
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final events = _filtered;
+    final events = _mockEvents;
 
     return SafeArea(
       child: Column(
@@ -131,15 +103,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
         children: [
           // ── Header ─────────────────────────────────────────────
           const _HistoryHeader(),
-
-          // ── Filter chips ───────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-            child: _FilterChips(
-              selected: _filter,
-              onChanged: (f) => setState(() => _filter = f),
-            ),
-          ),
 
           // ── List or empty state ─────────────────────────────────
           Expanded(
@@ -169,89 +132,6 @@ class _HistoryHeader extends StatelessWidget {
           Text('السجل', style: AppTextStyles.screenTitle),
           const SizedBox(height: 4),
         ],
-      ),
-    );
-  }
-}
-
-// ──────────────────────────────────────────────
-//  Filter chips
-// ──────────────────────────────────────────────
-class _FilterChips extends StatelessWidget {
-  const _FilterChips({required this.selected, required this.onChanged});
-
-  final _HistoryFilter selected;
-  final ValueChanged<_HistoryFilter> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: [
-          _Chip(
-            label: 'الكل',
-            isSelected: selected == _HistoryFilter.all,
-            onTap: () => onChanged(_HistoryFilter.all),
-          ),
-          const SizedBox(width: 8),
-          _Chip(
-            label: 'بكاء',
-            isSelected: selected == _HistoryFilter.cry,
-            onTap: () => onChanged(_HistoryFilter.cry),
-          ),
-          const SizedBox(width: 8),
-          _Chip(
-            label: 'الحرارة',
-            isSelected: selected == _HistoryFilter.temperature,
-            onTap: () => onChanged(_HistoryFilter.temperature),
-          ),
-          const SizedBox(width: 8),
-          _Chip(
-            label: 'الرطوبة',
-            isSelected: selected == _HistoryFilter.humidity,
-            onTap: () => onChanged(_HistoryFilter.humidity),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _Chip extends StatelessWidget {
-  const _Chip({
-    required this.label,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary : AppColors.cardSurface,
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(
-            color: isSelected ? AppColors.primary : AppColors.borderBeige,
-            width: 1.5,
-          ),
-        ),
-        child: Text(
-          label,
-          style: AppTextStyles.fieldLabel.copyWith(
-            color: isSelected ? Colors.white : AppColors.textSecondary,
-            fontSize: 13,
-            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-          ),
-        ),
       ),
     );
   }
@@ -349,7 +229,7 @@ class _HistoryList extends StatelessWidget {
 }
 
 // ──────────────────────────────────────────────
-//  Event card
+//  Event card (Cry + Temperature & Humidity)
 // ──────────────────────────────────────────────
 class _EventCard extends StatelessWidget {
   const _EventCard({required this.event});
@@ -358,17 +238,13 @@ class _EventCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isAlert = event.isAlert;
-
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
       decoration: BoxDecoration(
-        color: isAlert ? AppColors.alertBg : AppColors.cardSurface,
+        color: AppColors.cardSurface,
         borderRadius: BorderRadius.circular(18),
-        border: isAlert
-            ? Border.all(color: AppColors.alertBorder, width: 1.2)
-            : Border.all(color: AppColors.borderLight, width: 1),
+        border: Border.all(color: AppColors.borderLight, width: 1),
         boxShadow: const [
           BoxShadow(
             color: Color(0x0A785037),
@@ -377,53 +253,138 @@ class _EventCard extends StatelessWidget {
           ),
         ],
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // ── Icon ─────────────────────────────────────────────
-          _EventIcon(event: event),
-          const SizedBox(width: 12),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // ── Icon ─────────────────────────────────────────────
+              _EventIcon(event: event),
+              const SizedBox(width: 12),
 
-          // ── Text ─────────────────────────────────────────────
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  event.title,
-                  style: AppTextStyles.cardTitle.copyWith(
-                    color: isAlert ? AppColors.alert : AppColors.textPrimary,
-                    fontWeight: FontWeight.w600,
+              // ── Text ─────────────────────────────────────────────
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      event.title,
+                      style: AppTextStyles.cardTitle.copyWith(
+                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      _formatTime(event.timestamp),
+                      style: AppTextStyles.helperText.copyWith(fontSize: 11.5),
+                    ),
+                  ],
+                ),
+              ),
+
+              // ── Confidence badge ──────────────────────────────────
+              if (event.confidence != null) ...[
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 9,
+                    vertical: 5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.unclassified,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    event.confidence!,
+                    style: AppTextStyles.helperText.copyWith(
+                      fontSize: 11,
+                      color: AppColors.textSecondary,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  _formatTime(event.timestamp),
-                  style: AppTextStyles.helperText.copyWith(fontSize: 11.5),
+              ],
+            ],
+          ),
+
+          const SizedBox(height: 10),
+
+          // ── Room Temperature & Humidity at the time of crying ──
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+            decoration: BoxDecoration(
+              color: AppColors.backgroundCream,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.thermostat_rounded,
+                        size: 15,
+                        color: AppColors.primary,
+                      ),
+                      const SizedBox(width: 5),
+                      Text(
+                        'درجة الحرارة: ',
+                        style: AppTextStyles.featureDesc.copyWith(
+                          fontSize: 11,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                      Text(
+                        event.temperature,
+                        style: AppTextStyles.cardTitle.copyWith(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  width: 1,
+                  height: 14,
+                  color: AppColors.borderBeige,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.water_drop_outlined,
+                        size: 15,
+                        color: AppColors.success,
+                      ),
+                      const SizedBox(width: 5),
+                      Text(
+                        'الرطوبة: ',
+                        style: AppTextStyles.featureDesc.copyWith(
+                          fontSize: 11,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                      Text(
+                        event.humidity,
+                        style: AppTextStyles.cardTitle.copyWith(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
           ),
-
-          // ── Confidence badge ──────────────────────────────────
-          if (event.confidence != null) ...[
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-              decoration: BoxDecoration(
-                color: AppColors.unclassified,
-                borderRadius: BorderRadius.circular(999),
-              ),
-              child: Text(
-                event.confidence!,
-                style: AppTextStyles.helperText.copyWith(
-                  fontSize: 11,
-                  color: AppColors.textSecondary,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-          ],
         ],
       ),
     );
@@ -451,51 +412,21 @@ class _EventIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    IconData icon;
-    Color iconColor;
-    Color bgColor;
-
-    if (event.isAlert) {
-      icon = event.type == HistoryEventType.humidity
-          ? Icons.water_drop_rounded
-          : event.type == HistoryEventType.temperature
-              ? Icons.thermostat_rounded
-              : Icons.warning_rounded;
-      iconColor = AppColors.alert;
-      bgColor = AppColors.alert;
-    } else if (event.type == HistoryEventType.cry) {
-      icon = Icons.graphic_eq_rounded;
-      iconColor = AppColors.primary;
-      bgColor = AppColors.iconBg;
-    } else {
-      icon = Icons.access_time_rounded;
-      iconColor = AppColors.textSecondary;
-      bgColor = AppColors.unclassified;
-    }
-
-    if (event.isAlert) {
-      // Filled rounded square for alert
-      return Container(
-        width: 42,
-        height: 42,
-        decoration: BoxDecoration(
-          color: bgColor,
-          borderRadius: BorderRadius.circular(13),
-        ),
-        alignment: Alignment.center,
-        child: Icon(icon, color: Colors.white, size: 20),
-      );
-    }
+    final bool isCry = event.type == HistoryEventType.cry;
 
     return Container(
       width: 42,
       height: 42,
       decoration: BoxDecoration(
-        color: bgColor,
+        color: isCry ? AppColors.iconBg : AppColors.unclassified,
         borderRadius: BorderRadius.circular(13),
       ),
       alignment: Alignment.center,
-      child: Icon(icon, color: iconColor, size: 20),
+      child: Icon(
+        isCry ? Icons.graphic_eq_rounded : Icons.access_time_rounded,
+        color: isCry ? AppColors.primary : AppColors.textSecondary,
+        size: 20,
+      ),
     );
   }
 }
