@@ -14,18 +14,18 @@ class AppColors {
   static const Color gradientStart = Color(0xFFFDEDE2);
   static const Color gradientEnd = Color(0xFFF8DBC8);
 
-  // Primary (Peach / Orange)
+  // Primary (Peach / Orange — soft & warm Mahd identity)
   static const Color primaryLight = Color(0xFFE9A97F);
   static const Color primary = Color(0xFFCE7E52);
   static const Color primaryDark = Color(0xFFB0663C);
   static const Color primaryButtonStart = Color(0xFFEDAF85);
   static const Color primaryButtonEnd = Color(0xFFDD9163);
 
-  // Dark / Text
+  // Dark / Text (Lightest warm browns that still meet WCAG 2.1 AAA ≥ 7:1)
   static const Color textPrimary = Color(0xFF3A2B23);
-  static const Color textSecondary = Color(0xFF7C6355);
-  static const Color textHelper = Color(0xFF6B5446);
-  static const Color textLabel = Color(0xFF6B564A);
+  static const Color textSecondary = Color(0xFF664F42);
+  static const Color textHelper = Color(0xFF624C3F);
+  static const Color textLabel = Color(0xFF5E493D);
 
   // Borders
   static const Color borderBeige = Color(0xFFEFDDD0);
@@ -33,11 +33,11 @@ class AppColors {
   static const Color borderMedium = Color(0xFFF2E6DB);
 
   // Semantic — Success (Green)
-  static const Color success = Color(0xFF7E9B7A);
+  static const Color success = Color(0xFF567452);
   static const Color successBg = Color(0xFFEDF2EB);
 
   // Semantic — Alert / Error (Red)
-  static const Color alert = Color(0xFFBE5A43);
+  static const Color alert = Color(0xFFB54E38);
   static const Color alertBg = Color(0xFFFDF1EC);
   static const Color alertBorder = Color(0xFFF1CFC6);
 
