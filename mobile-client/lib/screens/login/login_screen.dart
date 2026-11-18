@@ -30,6 +30,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _onLogin() async {
+    if (_isLoading) return;
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
@@ -160,7 +161,13 @@ class _LoginScreenState extends State<LoginScreen> {
                   hint: 'example@gmail.com',
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
+                  textInputAction: TextInputAction.next,
                   textDirection: TextDirection.ltr,
+                  onFieldSubmitted: (_) {
+                    if (_passwordController.text.isNotEmpty) {
+                      _onLogin();
+                    }
+                  },
                   validator: (v) {
                     if (v == null || v.trim().isEmpty) {
                       return 'البريد الإلكتروني مطلوب';
@@ -185,6 +192,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   hint: '••••••••',
                   isPassword: true,
                   controller: _passwordController,
+                  textInputAction: TextInputAction.done,
+                  onFieldSubmitted: (_) => _onLogin(),
                   validator: (v) {
                     if (v == null || v.isEmpty) {
                       return 'كلمة المرور مطلوبة';

@@ -197,7 +197,7 @@ class _AccountScreenState extends State<AccountScreen> {
                   _BackButton(
                     onTap: widget.onBack,
                   ),
-                  const Spacer(),
+                  const SizedBox(width: 12),
                   Text(
                     'الحساب',
                     style: AppTextStyles.screenTitle.copyWith(

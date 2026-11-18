@@ -39,7 +39,7 @@ class _PrivacySecurityScreenState
                   onTap: widget.onBack,
                 ),
 
-                const Spacer(),
+                const SizedBox(width: 12),
 
                 Text(
                   'الخصوصية والأمان',

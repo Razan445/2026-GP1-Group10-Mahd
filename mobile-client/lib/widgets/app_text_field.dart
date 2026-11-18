@@ -11,6 +11,8 @@ class AppTextField extends StatefulWidget {
     this.hint = '',
     this.isPassword = false,
     this.keyboardType = TextInputType.text,
+    this.textInputAction,
+    this.onFieldSubmitted,
     this.controller,
     this.validator,
     this.helperText,
@@ -23,6 +25,8 @@ class AppTextField extends StatefulWidget {
   final String hint;
   final bool isPassword;
   final TextInputType keyboardType;
+  final TextInputAction? textInputAction;
+  final ValueChanged<String>? onFieldSubmitted;
   final TextEditingController? controller;
   final String? Function(String?)? validator;
   final String? helperText;
@@ -52,6 +56,8 @@ class _AppTextFieldState extends State<AppTextField> {
           readOnly: widget.readOnly,
           obscureText: widget.isPassword && _obscure,
           keyboardType: widget.keyboardType,
+          textInputAction: widget.textInputAction,
+          onFieldSubmitted: widget.onFieldSubmitted,
           validator: widget.validator,
           textDirection: widget.textDirection,
           style: AppTextStyles.bodyText.copyWith(
