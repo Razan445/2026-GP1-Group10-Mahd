@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:math';
+import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -7,6 +9,7 @@ import '../../core/theme/app_theme.dart';
 import '../../services/audio_monitoring_service.dart';
 import '../../services/cry_classifier_service.dart';
 import '../../services/firestore_service.dart';
+import '../../services/monitoring_service.dart';
 import '../calendar/calendar_screen.dart';
 import '../child_development/child_development_gate.dart';
 import '../settings/settings_screen.dart';
@@ -35,6 +38,21 @@ class _HomeScreenState extends State<HomeScreen> {
   final CryClassifierService _classifier = CryClassifierService();
   bool _modelReady = false;
 
+  static const int _windowSamples = 32000;
+  static const double _minRmsThreshold = 0.015;
+  static const double _minConfidenceThreshold = 0.50;
+  static const Duration _saveCooldown = Duration(seconds: 5);
+
+  StreamSubscription<Uint8List>? _audioSubscription;
+  final List<double> _sampleBuffer = <double>[];
+  int? _pendingLowByte;
+  bool _isPredicting = false;
+  DateTime? _lastSavedCryAt;
+
+  String? _latestCryCause;
+  double? _latestCryConfidence;
+  DateTime? _latestCryTime;
+
   @override
   void initState() {
     super.initState();
@@ -42,12 +60,150 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _loadModel() async {
+    if (_modelReady) return;
     try {
       await _classifier.init();
       if (!mounted) return;
       setState(() => _modelReady = true);
     } catch (e) {
       debugPrint('CryClassifierService init error: $e');
+    }
+  }
+
+  void _startAudioClassification() {
+    _stopAudioClassification();
+
+    final stream = MonitoringService.instance.audioStream;
+    if (stream == null) return;
+
+    _audioSubscription = stream.listen(
+      _onAudioChunk,
+      onError: (Object error) {
+        debugPrint('Audio stream classification error: $error');
+      },
+    );
+  }
+
+  void _stopAudioClassification() {
+    unawaited(_audioSubscription?.cancel());
+    _audioSubscription = null;
+    _sampleBuffer.clear();
+    _pendingLowByte = null;
+  }
+
+  void _onAudioChunk(Uint8List chunk) {
+    if (!_isMonitoring || !_modelReady || chunk.isEmpty) {
+      return;
+    }
+
+    int offset = 0;
+    if (_pendingLowByte != null) {
+      final low = _pendingLowByte!;
+      final high = chunk[0];
+      _pendingLowByte = null;
+      offset = 1;
+      int sample = low | (high << 8);
+      if (sample >= 0x8000) sample -= 0x10000;
+      _sampleBuffer.add(sample / 32768.0);
+    }
+
+    final remaining = chunk.length - offset;
+    final evenLength = remaining - (remaining % 2);
+    if (evenLength > 0) {
+      final data = ByteData.sublistView(chunk, offset, offset + evenLength);
+      for (int i = 0; i < evenLength; i += 2) {
+        final sample = data.getInt16(i, Endian.little);
+        _sampleBuffer.add(sample / 32768.0);
+      }
+    }
+
+    if (remaining % 2 == 1) {
+      _pendingLowByte = chunk[chunk.length - 1];
+    }
+
+    while (_sampleBuffer.length >= _windowSamples) {
+      final window = Float32List(_windowSamples);
+      for (int i = 0; i < _windowSamples; i++) {
+        window[i] = _sampleBuffer[i];
+      }
+      _sampleBuffer.removeRange(0, _windowSamples);
+
+      if (!_isPredicting) {
+        unawaited(_classifyWindow(window));
+      }
+    }
+  }
+
+  Future<void> _classifyWindow(Float32List window) async {
+    double sumSquares = 0.0;
+    for (int i = 0; i < window.length; i++) {
+      final v = window[i];
+      sumSquares += v * v;
+    }
+    final rms = sqrt(sumSquares / window.length);
+    if (rms < _minRmsThreshold) {
+      return;
+    }
+
+    _isPredicting = true;
+    try {
+      final probabilities = await _classifier.predict(window);
+      if (probabilities.isEmpty || !_isMonitoring || !mounted) {
+        return;
+      }
+
+      MapEntry<String, double>? best;
+      for (final entry in probabilities.entries) {
+        if (best == null || entry.value > best.value) {
+          best = entry;
+        }
+      }
+
+      if (best == null || best.value < _minConfidenceThreshold) {
+        return;
+      }
+
+      final now = DateTime.now();
+      setState(() {
+        _latestCryCause = _arabicCryCause(best!.key);
+        _latestCryConfidence = best.value;
+        _latestCryTime = now;
+      });
+
+      final canSave = _lastSavedCryAt == null ||
+          now.difference(_lastSavedCryAt!) >= _saveCooldown;
+      if (canSave && MonitoringService.instance.activeSessionId != null) {
+        _lastSavedCryAt = now;
+        try {
+          await MonitoringService.instance.saveCryData(
+            cause: best.key,
+            confidence: best.value,
+          );
+        } catch (e) {
+          debugPrint('Save cry data error: $e');
+        }
+      }
+    } catch (e) {
+      debugPrint('Cry classification error: $e');
+    } finally {
+      _isPredicting = false;
+    }
+  }
+
+  String _arabicCryCause(String label) {
+    switch (label.toLowerCase()) {
+      case 'hunger':
+        return 'جوع';
+      case 'burping':
+        return 'تجشؤ';
+      case 'discomfort':
+        return 'انزعاج';
+      case 'pain':
+        return 'ألم';
+      case 'tired':
+        return 'تعب';
+      default:
+        return label;
     }
   }
 
@@ -117,6 +273,10 @@ class _HomeScreenState extends State<HomeScreen> {
     });
 
     try {
+      if (!_modelReady) {
+        await _loadModel();
+      }
+
       // Start the real microphone stream first.
       // A Firestore session is created only if microphone startup succeeds.
       await AudioMonitoringService.instance.startMonitoring();
@@ -133,6 +293,8 @@ class _HomeScreenState extends State<HomeScreen> {
         _isMonitoring = true;
         _startElapsedTimer();
       });
+
+      _startAudioClassification();
     } on AudioMonitoringPermissionException {
       if (!mounted) {
         return;
@@ -178,6 +340,8 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {
       _isMonitoringActionInProgress = true;
     });
+
+    _stopAudioClassification();
 
     final sessionId = _activeSessionId;
     Object? microphoneError;
@@ -246,6 +410,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void dispose() {
     _monitoringTimer?.cancel();
+    _stopAudioClassification();
     _classifier.dispose();
     unawaited(
       _cleanupMonitoringOnDispose(_activeSessionId),
@@ -377,6 +542,9 @@ class _HomeScreenState extends State<HomeScreen> {
             isMonitoring: _isMonitoring,
             isMonitoringActionInProgress: _isMonitoringActionInProgress,
             monitoringDurationText: _formattedMonitoringDuration,
+            latestCryCause: _latestCryCause,
+            latestCryConfidence: _latestCryConfidence,
+            latestCryTime: _latestCryTime,
             onMonitoringTap: _toggleMonitoring,
             onCameraTap: () {
               Navigator.of(context).push(
@@ -413,6 +581,9 @@ class _HomeTab extends StatelessWidget {
     required this.isMonitoring,
     required this.isMonitoringActionInProgress,
     required this.monitoringDurationText,
+    required this.latestCryCause,
+    required this.latestCryConfidence,
+    required this.latestCryTime,
     required this.onMonitoringTap,
     required this.onCameraTap,
   });
@@ -423,6 +594,9 @@ class _HomeTab extends StatelessWidget {
   final bool isMonitoring;
   final bool isMonitoringActionInProgress;
   final String monitoringDurationText;
+  final String? latestCryCause;
+  final double? latestCryConfidence;
+  final DateTime? latestCryTime;
   final VoidCallback onMonitoringTap;
   final VoidCallback onCameraTap;
 
@@ -489,7 +663,11 @@ class _HomeTab extends StatelessWidget {
             const SizedBox(height: 14),
 
             // ── Latest detected cry / event ───────────────────
-            const _LatestCryEventCard(),
+            _LatestCryEventCard(
+              cause: latestCryCause,
+              confidence: latestCryConfidence,
+              timestamp: latestCryTime,
+            ),
 
             const SizedBox(height: 12),
 
@@ -1276,16 +1454,40 @@ class _StartMonitoringButton
 // ── Latest detected cry / event ──────────────────────────────────
 
 class _LatestCryEventCard extends StatelessWidget {
-  const _LatestCryEventCard();
+  const _LatestCryEventCard({
+    this.cause,
+    this.confidence,
+    this.timestamp,
+  });
 
-  /// 🔧 MOCK — static classification & sensor values until AI inference is connected.
-  static const String _cause = 'جوع';
-  static const String _confidence = '٩٢٪';
-  static const String _timestamp =
-      'منذ ١٥ دقيقة';
-  static const String _temperature =
-      '24°م';
+  final String? cause;
+  final double? confidence;
+  final DateTime? timestamp;
+
+  static const String _defaultCause = 'جوع';
+  static const String _defaultConfidence = '٩٢٪';
+  static const String _defaultTimestamp = 'منذ ١٥ دقيقة';
+  static const String _temperature = '24°م';
   static const String _humidity = '45%';
+
+  String get _cause => cause ?? _defaultCause;
+
+  String get _confidence {
+    final value = confidence;
+    if (value == null) return _defaultConfidence;
+    return '${(value * 100).round()}%';
+  }
+
+  String get _timestamp {
+    final time = timestamp;
+    if (time == null) return _defaultTimestamp;
+    final diff = DateTime.now().difference(time);
+    if (diff.inSeconds < 60) return 'الآن';
+    if (diff.inMinutes < 60) return 'منذ ${diff.inMinutes} دقيقة';
+    final hh = time.hour.toString().padLeft(2, '0');
+    final mm = time.minute.toString().padLeft(2, '0');
+    return '$hh:$mm';
+  }
 
   @override
   Widget build(BuildContext context) {
