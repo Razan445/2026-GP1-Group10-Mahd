@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
 import '../../services/audio_monitoring_service.dart';
 import '../../services/cry_classifier_service.dart';
+import '../../services/cry_notification_service.dart';
 import '../../services/firestore_service.dart';
 import '../../services/monitoring_service.dart';
 import '../calendar/calendar_screen.dart';
@@ -57,6 +58,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _loadModel();
+    unawaited(CryNotificationService.instance.init());
   }
 
   Future<void> _loadModel() async {
@@ -164,23 +166,32 @@ class _HomeScreenState extends State<HomeScreen> {
       }
 
       final now = DateTime.now();
+      final arabicCause = _arabicCryCause(best.key);
       setState(() {
-        _latestCryCause = _arabicCryCause(best!.key);
-        _latestCryConfidence = best.value;
+        _latestCryCause = arabicCause;
+        _latestCryConfidence = best!.value;
         _latestCryTime = now;
       });
 
-      final canSave = _lastSavedCryAt == null ||
+      final canNotifyAndSave = _lastSavedCryAt == null ||
           now.difference(_lastSavedCryAt!) >= _saveCooldown;
-      if (canSave && MonitoringService.instance.activeSessionId != null) {
+      if (canNotifyAndSave) {
         _lastSavedCryAt = now;
-        try {
-          await MonitoringService.instance.saveCryData(
-            cause: best.key,
+        unawaited(
+          CryNotificationService.instance.showCryAlert(
+            arabicCause: arabicCause,
             confidence: best.value,
-          );
-        } catch (e) {
-          debugPrint('Save cry data error: $e');
+          ),
+        );
+        if (MonitoringService.instance.activeSessionId != null) {
+          try {
+            await MonitoringService.instance.saveCryData(
+              cause: best.key,
+              confidence: best.value,
+            );
+          } catch (e) {
+            debugPrint('Save cry data error: $e');
+          }
         }
       }
     } catch (e) {
