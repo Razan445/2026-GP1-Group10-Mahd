@@ -19,6 +19,16 @@ subprojects {
     project.evaluationDependsOn(":app")
 }
 
+subprojects {
+    if (project.name == "onnxruntime") {
+        afterEvaluate {
+            extensions.findByType(com.android.build.api.dsl.LibraryExtension::class.java)?.apply {
+                compileSdk = 36
+            }
+        }
+    }
+}
+
 tasks.register<Delete>("clean") {
     delete(rootProject.layout.buildDirectory)
 }

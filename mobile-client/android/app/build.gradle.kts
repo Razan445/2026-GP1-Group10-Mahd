@@ -9,7 +9,7 @@ plugins {
 
 android {
     namespace = "com.mahd.mahd_app"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 37
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
