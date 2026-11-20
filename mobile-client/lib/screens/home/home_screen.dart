@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
 import '../../services/audio_monitoring_service.dart';
+import '../../services/cry_classifier_service.dart';
 import '../../services/firestore_service.dart';
 import '../calendar/calendar_screen.dart';
 import '../child_development/child_development_gate.dart';
@@ -30,6 +31,25 @@ class _HomeScreenState extends State<HomeScreen> {
   Timer? _monitoringTimer;
   int _currentSessionSeconds = 0;
   int _completedSessionsSecondsToday = 0;
+
+  final CryClassifierService _classifier = CryClassifierService();
+  bool _modelReady = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadModel();
+  }
+
+  Future<void> _loadModel() async {
+    try {
+      await _classifier.init();
+      if (!mounted) return;
+      setState(() => _modelReady = true);
+    } catch (e) {
+      debugPrint('CryClassifierService init error: $e');
+    }
+  }
 
   // Greeting based on time-of-day:
   // 4:00 AM .. 11:59 AM -> صباح الخير
@@ -226,6 +246,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void dispose() {
     _monitoringTimer?.cancel();
+    _classifier.dispose();
     unawaited(
       _cleanupMonitoringOnDispose(_activeSessionId),
     );
