@@ -357,6 +357,13 @@ class _HomeScreenState extends State<HomeScreen> {
             isMonitoringActionInProgress: _isMonitoringActionInProgress,
             monitoringDurationText: _formattedMonitoringDuration,
             onMonitoringTap: _toggleMonitoring,
+            onCameraTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => const _LiveCameraScreen(),
+                ),
+              );
+            },
           ),
           const HistoryScreen(),
           const CalendarScreen(),
@@ -386,6 +393,7 @@ class _HomeTab extends StatelessWidget {
     required this.isMonitoringActionInProgress,
     required this.monitoringDurationText,
     required this.onMonitoringTap,
+    required this.onCameraTap,
   });
 
   final String greeting;
@@ -395,6 +403,7 @@ class _HomeTab extends StatelessWidget {
   final bool isMonitoringActionInProgress;
   final String monitoringDurationText;
   final VoidCallback onMonitoringTap;
+  final VoidCallback onCameraTap;
 
   @override
   Widget build(BuildContext context) {
@@ -418,13 +427,17 @@ class _HomeTab extends StatelessWidget {
               builder: (context, snapshot) {
                 final fullName =
                     (snapshot.data?.data()?['fullName'] as String?)?.trim();
-                final firstName = (fullName == null || fullName.isEmpty)
-                    ? ''
-                    : fullName.split(RegExp(r'\s+')).first;
+
+                final firstName =
+                    (fullName == null || fullName.isEmpty)
+                        ? ''
+                        : fullName.split(RegExp(r'\s+')).first;
 
                 return Text(
                   firstName.isEmpty ? greeting : '$greeting، $firstName',
-                  style: AppTextStyles.screenTitle.copyWith(fontSize: 21),
+                  style: AppTextStyles.screenTitle.copyWith(
+                    fontSize: 21,
+                  ),
                 );
               },
             ),
@@ -439,13 +452,20 @@ class _HomeTab extends StatelessWidget {
             const SizedBox(height: 20),
 
             // ── Monitoring card (Dynamic Color & Pulse State) ──
-            _IdleMonitoringCard(
+            // ── Microphone + camera controls ───────────────────────
+            _MonitoringControlsRow(
               isMonitoring: isMonitoring,
               isLoading: isMonitoringActionInProgress,
               onMonitoringTap: onMonitoringTap,
+              onCameraTap: onCameraTap,
             ),
 
             const SizedBox(height: 16),
+
+            // ── Child development preview ─────────────────────
+            const _ChildDevelopmentCard(),
+
+            const SizedBox(height: 14),
 
             // ── Latest detected cry / event ───────────────────
             const _LatestCryEventCard(),
@@ -460,18 +480,10 @@ class _HomeTab extends StatelessWidget {
 
             const SizedBox(height: 14),
 
-            // ── Child development preview ─────────────────────
-            const _ChildDevelopmentCard(),
-
-            const SizedBox(height: 14),
-
             // ── White noise quick control ─────────────────────
             const _WhiteNoiseCard(),
 
-            const SizedBox(height: 14),
-
             // ── Privacy note ──────────────────────────────────
-            _PrivacyNote(),
           ],
         ),
       ),
@@ -493,7 +505,9 @@ class _TopBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
+      padding: const EdgeInsets.symmetric(
+        vertical: 10,
+      ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -554,6 +568,342 @@ class _TopBar extends StatelessWidget {
   }
 }
 
+// ── Microphone + camera controls ────────────────────────────────
+
+class _MonitoringControlsRow extends StatelessWidget {
+  const _MonitoringControlsRow({
+    required this.isMonitoring,
+    required this.isLoading,
+    required this.onMonitoringTap,
+    required this.onCameraTap,
+  });
+
+  final bool isMonitoring;
+  final bool isLoading;
+  final VoidCallback onMonitoringTap;
+  final VoidCallback onCameraTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: _MonitoringFeatureCard(
+            title: 'الميكروفون',
+            subtitle:
+                isMonitoring ? 'يستمع الآن' : 'متوقف حالياً',
+            icon: isMonitoring
+                ? Icons.graphic_eq_rounded
+                : Icons.mic_none_rounded,
+            isActive: isMonitoring,
+            isLoading: isLoading,
+            actionLabel:
+                isMonitoring ? 'إيقاف' : 'بدء',
+            onTap: onMonitoringTap,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _MonitoringFeatureCard(
+            title: 'الكاميرا',
+            subtitle: 'بث مباشر فقط',
+            icon: Icons.videocam_outlined,
+            isActive: false,
+            isLoading: false,
+            actionLabel: 'عرض البث',
+            onTap: onCameraTap,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _MonitoringFeatureCard extends StatelessWidget {
+  const _MonitoringFeatureCard({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.isActive,
+    required this.isLoading,
+    required this.actionLabel,
+    required this.onTap,
+  });
+
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final bool isActive;
+  final bool isLoading;
+  final String actionLabel;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    const activeStart = Color(0xFFE7F2E5);
+    const activeEnd = Color(0xFFD4E7D1);
+    const activeAccent = Color(0xFF4F7A4A);
+
+    return AnimatedContainer(
+      duration: const Duration(
+        milliseconds: 300,
+      ),
+      padding: const EdgeInsets.fromLTRB(
+        14,
+        18,
+        14,
+        14,
+      ),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: isActive
+              ? const [
+                  activeStart,
+                  activeEnd,
+                ]
+              : const [
+                  AppColors.gradientStart,
+                  AppColors.gradientEnd,
+                ],
+        ),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: isActive
+              ? AppColors.success.withValues(
+                  alpha: 0.45,
+                )
+              : Colors.transparent,
+          width: 1.2,
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x18C88C64),
+            blurRadius: 20,
+            offset: Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 68,
+            height: 68,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(
+                alpha: 0.84,
+              ),
+              shape: BoxShape.circle,
+              border: isActive
+                  ? Border.all(
+                      color: AppColors.success.withValues(
+                        alpha: 0.45,
+                      ),
+                      width: 1.5,
+                    )
+                  : null,
+            ),
+            alignment: Alignment.center,
+            child: Icon(
+              icon,
+              size: 30,
+              color: isActive
+                  ? activeAccent
+                  : AppColors.primary,
+            ),
+          ),
+
+          const SizedBox(height: 12),
+
+          Text(
+            title,
+            style: AppTextStyles.cardTitle.copyWith(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: isActive
+                  ? const Color(
+                      0xFF284325,
+                    )
+                  : AppColors.textPrimary,
+            ),
+          ),
+
+          const SizedBox(height: 3),
+
+          Text(
+            subtitle,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: AppTextStyles.featureDesc.copyWith(
+              fontSize: 10.5,
+              color: isActive
+                  ? const Color(
+                      0xFF3E633A,
+                    )
+                  : AppColors.textSecondary,
+            ),
+          ),
+
+          const SizedBox(height: 14),
+
+          SizedBox(
+            width: double.infinity,
+            height: 40,
+            child: TextButton(
+              onPressed:
+                  isLoading ? null : onTap,
+              style: TextButton.styleFrom(
+                backgroundColor: isActive
+                    ? const Color(
+                        0xFF2F4A2C,
+                      )
+                    : AppColors.darkSurface,
+                disabledBackgroundColor:
+                    AppColors.darkSurface.withValues(
+                  alpha: 0.72,
+                ),
+                foregroundColor:
+                    AppColors.darkSurfaceText,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(
+                    14,
+                  ),
+                ),
+              ),
+              child: isLoading
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child:
+                          CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppColors
+                            .darkSurfaceText,
+                      ),
+                    )
+                  : Text(
+                      actionLabel,
+                      style: AppTextStyles.buttonText
+                          .copyWith(
+                        fontSize: 11.5,
+                        color: AppColors
+                            .darkSurfaceText,
+                      ),
+                    ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Live camera placeholder ──────────────────────────────────────
+
+class _LiveCameraScreen extends StatelessWidget {
+  const _LiveCameraScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        backgroundColor: AppColors.backgroundCream,
+        appBar: AppBar(
+          backgroundColor:
+              AppColors.backgroundCream,
+          surfaceTintColor: Colors.transparent,
+          elevation: 0,
+          centerTitle: true,
+          title: Text(
+            'البث المباشر',
+            style:
+                AppTextStyles.cardTitle.copyWith(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(
+              20,
+              18,
+              20,
+              24,
+            ),
+            child: Column(
+              crossAxisAlignment:
+                  CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: const Color(
+                        0xFF1F1D1B,
+                      ),
+                      borderRadius:
+                          BorderRadius.circular(
+                        24,
+                      ),
+                    ),
+                    alignment: Alignment.center,
+                    child: Column(
+                      mainAxisSize:
+                          MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.videocam_outlined,
+                          size: 58,
+                          color: Colors.white70,
+                        ),
+                        const SizedBox(
+                          height: 14,
+                        ),
+                        Text(
+                          'سيظهر البث المباشر هنا عند ربط كاميرا مهد',
+                          textAlign:
+                              TextAlign.center,
+                          style: AppTextStyles
+                              .featureDesc
+                              .copyWith(
+                            fontSize: 13,
+                            color: Colors.white,
+                            fontWeight:
+                                FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(
+                          height: 7,
+                        ),
+                        Text(
+                          'البث للمشاهدة فقط ولن يتم تسجيل الفيديو أو حفظه.',
+                          textAlign:
+                              TextAlign.center,
+                          style: AppTextStyles
+                              .helperText
+                              .copyWith(
+                            fontSize: 11,
+                            color:
+                                Colors.white70,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 // ── Dynamic monitoring card (Idle vs Active State) ──────────────
 
 class _IdleMonitoringCard extends StatefulWidget {
@@ -568,10 +918,12 @@ class _IdleMonitoringCard extends StatefulWidget {
   final VoidCallback onMonitoringTap;
 
   @override
-  State<_IdleMonitoringCard> createState() => _IdleMonitoringCardState();
+  State<_IdleMonitoringCard> createState() =>
+      _IdleMonitoringCardState();
 }
 
-class _IdleMonitoringCardState extends State<_IdleMonitoringCard>
+class _IdleMonitoringCardState
+    extends State<_IdleMonitoringCard>
     with SingleTickerProviderStateMixin {
   late final AnimationController _pulseController;
 
@@ -580,19 +932,31 @@ class _IdleMonitoringCardState extends State<_IdleMonitoringCard>
     super.initState();
     _pulseController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1500),
+      duration: const Duration(
+        milliseconds: 1500,
+      ),
     );
+
     if (widget.isMonitoring) {
-      _pulseController.repeat(reverse: true);
+      _pulseController.repeat(
+        reverse: true,
+      );
     }
   }
 
   @override
-  void didUpdateWidget(covariant _IdleMonitoringCard oldWidget) {
+  void didUpdateWidget(
+    covariant _IdleMonitoringCard oldWidget,
+  ) {
     super.didUpdateWidget(oldWidget);
-    if (widget.isMonitoring && !_pulseController.isAnimating) {
-      _pulseController.repeat(reverse: true);
-    } else if (!widget.isMonitoring && _pulseController.isAnimating) {
+
+    if (widget.isMonitoring &&
+        !_pulseController.isAnimating) {
+      _pulseController.repeat(
+        reverse: true,
+      );
+    } else if (!widget.isMonitoring &&
+        _pulseController.isAnimating) {
       _pulseController.stop();
       _pulseController.reset();
     }
@@ -609,35 +973,64 @@ class _IdleMonitoringCardState extends State<_IdleMonitoringCard>
     final active = widget.isMonitoring;
 
     // ألوان الحالة: الدافئة في وضع التوقف، والخضراء الحية المطمئنة في وضع التشغيل
-    const activeStart = Color(0xFFE7F2E5);
-    const activeEnd = Color(0xFFD4E7D1);
-    const activeAccent = Color(0xFF4F7A4A);
+    const activeStart =
+        Color(0xFFE7F2E5);
+    const activeEnd =
+        Color(0xFFD4E7D1);
+    const activeAccent =
+        Color(0xFF4F7A4A);
 
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 350),
+      duration: const Duration(
+        milliseconds: 350,
+      ),
       curve: Curves.easeInOut,
-      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 24),
+      padding: const EdgeInsets.symmetric(
+        horizontal: 22,
+        vertical: 24,
+      ),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: active
-              ? const [activeStart, activeEnd]
-              : const [AppColors.gradientStart, AppColors.gradientEnd],
-          stops: const [0.0, 1.0],
+              ? const [
+                  activeStart,
+                  activeEnd,
+                ]
+              : const [
+                  AppColors.gradientStart,
+                  AppColors.gradientEnd,
+                ],
+          stops: const [
+            0.0,
+            1.0,
+          ],
         ),
-        borderRadius: BorderRadius.circular(28),
+        borderRadius:
+            BorderRadius.circular(28),
         border: Border.all(
           color: active
-              ? AppColors.success.withValues(alpha: 0.55)
+              ? AppColors.success.withValues(
+                  alpha: 0.55,
+                )
               : Colors.transparent,
           width: 1.5,
         ),
         boxShadow: [
           BoxShadow(
-            color: active ? const Color(0x2864905E) : const Color(0x24C88C64),
+            color: active
+                ? const Color(
+                    0x2864905E,
+                  )
+                : const Color(
+                    0x24C88C64,
+                  ),
             blurRadius: 30,
-            offset: const Offset(0, 12),
+            offset: const Offset(
+              0,
+              12,
+            ),
           ),
         ],
       ),
@@ -647,8 +1040,12 @@ class _IdleMonitoringCardState extends State<_IdleMonitoringCard>
           AnimatedBuilder(
             animation: _pulseController,
             builder: (context, child) {
-              final pulseScale =
-                  active ? 1.0 + (_pulseController.value * 0.11) : 1.0;
+              final pulseScale = active
+                  ? 1.0 +
+                      (_pulseController.value *
+                          0.11)
+                  : 1.0;
+
               return Stack(
                 alignment: Alignment.center,
                 children: [
@@ -658,10 +1055,17 @@ class _IdleMonitoringCardState extends State<_IdleMonitoringCard>
                       child: Container(
                         width: 132,
                         height: 132,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: AppColors.success.withValues(
-                            alpha: 0.18 * (1.0 - _pulseController.value * 0.4),
+                        decoration:
+                            BoxDecoration(
+                          shape:
+                              BoxShape.circle,
+                          color: AppColors.success
+                              .withValues(
+                            alpha: 0.18 *
+                                (1.0 -
+                                    _pulseController
+                                            .value *
+                                        0.4),
                           ),
                         ),
                       ),
@@ -669,23 +1073,36 @@ class _IdleMonitoringCardState extends State<_IdleMonitoringCard>
                   Container(
                     width: 114,
                     height: 114,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.82),
+                    decoration:
+                        BoxDecoration(
+                      color: Colors.white
+                          .withValues(
+                        alpha: 0.82,
+                      ),
                       shape: BoxShape.circle,
                       border: active
                           ? Border.all(
-                              color: AppColors.success.withValues(alpha: 0.5),
+                              color: AppColors
+                                  .success
+                                  .withValues(
+                                alpha: 0.5,
+                              ),
                               width: 2,
                             )
                           : null,
                     ),
-                    alignment: Alignment.center,
+                    alignment:
+                        Alignment.center,
                     child: Icon(
                       active
-                          ? Icons.graphic_eq_rounded
-                          : Icons.mic_none_rounded,
+                          ? Icons
+                              .graphic_eq_rounded
+                          : Icons
+                              .mic_none_rounded,
                       size: 44,
-                      color: active ? activeAccent : AppColors.primary,
+                      color: active
+                          ? activeAccent
+                          : AppColors.primary,
                     ),
                   ),
                 ],
@@ -697,10 +1114,17 @@ class _IdleMonitoringCardState extends State<_IdleMonitoringCard>
 
           // ── Status texts ──────────────────────────────
           Text(
-            active ? 'المراقبة قيد التشغيل' : 'المراقبة متوقفة',
-            style: AppTextStyles.screenTitle.copyWith(
+            active
+                ? 'المراقبة قيد التشغيل'
+                : 'المراقبة متوقفة',
+            style:
+                AppTextStyles.screenTitle.copyWith(
               fontSize: 18,
-              color: active ? const Color(0xFF284325) : AppColors.textPrimary,
+              color: active
+                  ? const Color(
+                      0xFF284325,
+                    )
+                  : AppColors.textPrimary,
             ),
           ),
 
@@ -710,9 +1134,14 @@ class _IdleMonitoringCardState extends State<_IdleMonitoringCard>
             active
                 ? 'مهد يستمع الآن إلى محيط طفلك ويعالج الصوت محليًا.'
                 : 'ابدئي الجلسة ليستمع مهد إلى محيط طفلك.',
-            style: AppTextStyles.helperText.copyWith(
+            style: AppTextStyles.helperText
+                .copyWith(
               fontSize: 12.5,
-              color: active ? const Color(0xFF3E633A) : AppColors.textHelper,
+              color: active
+                  ? const Color(
+                      0xFF3E633A,
+                    )
+                  : AppColors.textHelper,
             ),
             textAlign: TextAlign.center,
           ),
@@ -723,7 +1152,8 @@ class _IdleMonitoringCardState extends State<_IdleMonitoringCard>
           _StartMonitoringButton(
             isMonitoring: active,
             isLoading: widget.isLoading,
-            onPressed: widget.onMonitoringTap,
+            onPressed:
+                widget.onMonitoringTap,
           ),
         ],
       ),
@@ -733,7 +1163,8 @@ class _IdleMonitoringCardState extends State<_IdleMonitoringCard>
 
 // ── Monitoring Action Button ─────────────────────────────────────
 
-class _StartMonitoringButton extends StatelessWidget {
+class _StartMonitoringButton
+    extends StatelessWidget {
   const _StartMonitoringButton({
     required this.isMonitoring,
     required this.isLoading,
@@ -746,20 +1177,31 @@ class _StartMonitoringButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bgColor =
-        isMonitoring ? const Color(0xFF2F4A2C) : AppColors.darkSurface;
+    final bgColor = isMonitoring
+        ? const Color(
+            0xFF2F4A2C,
+          )
+        : AppColors.darkSurface;
 
     return SizedBox(
       height: 52,
       width: double.infinity,
       child: TextButton(
-        onPressed: isLoading ? null : onPressed,
+        onPressed:
+            isLoading ? null : onPressed,
         style: TextButton.styleFrom(
           backgroundColor: bgColor,
-          disabledBackgroundColor: bgColor.withValues(alpha: 0.72),
-          foregroundColor: AppColors.darkSurfaceText,
+          disabledBackgroundColor:
+              bgColor.withValues(
+            alpha: 0.72,
+          ),
+          foregroundColor:
+              AppColors.darkSurfaceText,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(17),
+            borderRadius:
+                BorderRadius.circular(
+              17,
+            ),
           ),
           padding: EdgeInsets.zero,
         ),
@@ -767,26 +1209,40 @@ class _StartMonitoringButton extends StatelessWidget {
             ? const SizedBox(
                 width: 22,
                 height: 22,
-                child: CircularProgressIndicator(
+                child:
+                    CircularProgressIndicator(
                   strokeWidth: 2.2,
-                  color: AppColors.darkSurfaceText,
+                  color: AppColors
+                      .darkSurfaceText,
                 ),
               )
             : Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisAlignment:
+                    MainAxisAlignment
+                        .center,
                 children: [
                   Icon(
                     isMonitoring
-                        ? Icons.stop_circle_outlined
-                        : Icons.play_circle_outline_rounded,
+                        ? Icons
+                            .stop_circle_outlined
+                        : Icons
+                            .play_circle_outline_rounded,
                     size: 20,
-                    color: AppColors.darkSurfaceText,
+                    color: AppColors
+                        .darkSurfaceText,
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(
+                    width: 8,
+                  ),
                   Text(
-                    isMonitoring ? 'إيقاف المراقبة' : 'بدء المراقبة',
-                    style: AppTextStyles.buttonText.copyWith(
-                      color: AppColors.darkSurfaceText,
+                    isMonitoring
+                        ? 'إيقاف المراقبة'
+                        : 'بدء المراقبة',
+                    style: AppTextStyles
+                        .buttonText
+                        .copyWith(
+                      color: AppColors
+                          .darkSurfaceText,
                     ),
                   ),
                 ],
@@ -804,17 +1260,23 @@ class _LatestCryEventCard extends StatelessWidget {
   /// 🔧 MOCK — static classification & sensor values until AI inference is connected.
   static const String _cause = 'جوع';
   static const String _confidence = '٩٢٪';
-  static const String _timestamp = 'منذ ١٥ دقيقة';
-  static const String _temperature = '24°م';
+  static const String _timestamp =
+      'منذ ١٥ دقيقة';
+  static const String _temperature =
+      '24°م';
   static const String _humidity = '45%';
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      padding: const EdgeInsets.symmetric(
+        horizontal: 16,
+        vertical: 14,
+      ),
       decoration: BoxDecoration(
         color: AppColors.cardSurface,
-        borderRadius: BorderRadius.circular(22),
+        borderRadius:
+            BorderRadius.circular(22),
         boxShadow: const [
           BoxShadow(
             color: Color(0x0D785037),
@@ -824,19 +1286,25 @@ class _LatestCryEventCard extends StatelessWidget {
         ],
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment:
+            CrossAxisAlignment.start,
         children: [
           Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
+            crossAxisAlignment:
+                CrossAxisAlignment.center,
             children: [
               Container(
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
                   color: AppColors.iconBg,
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius:
+                      BorderRadius.circular(
+                    14,
+                  ),
                 ),
-                alignment: Alignment.center,
+                alignment:
+                    Alignment.center,
                 child: const Icon(
                   Icons.child_care_rounded,
                   size: 22,
@@ -846,45 +1314,64 @@ class _LatestCryEventCard extends StatelessWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment:
+                      CrossAxisAlignment.start,
+                  mainAxisSize:
+                      MainAxisSize.min,
                   children: [
                     Text(
                       'آخر حالة بكاء تم رصدها',
-                      style: AppTextStyles.cardTitle.copyWith(
+                      style: AppTextStyles
+                          .cardTitle
+                          .copyWith(
                         fontSize: 14,
-                        fontWeight: FontWeight.w600,
+                        fontWeight:
+                            FontWeight.w600,
                       ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       _timestamp,
-                      style: AppTextStyles.featureDesc.copyWith(
+                      style: AppTextStyles
+                          .featureDesc
+                          .copyWith(
                         fontSize: 11,
-                        color: AppColors.textSecondary,
+                        color: AppColors
+                            .textSecondary,
                       ),
                     ),
                   ],
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(
+                padding:
+                    const EdgeInsets.symmetric(
                   horizontal: 9,
                   vertical: 4,
                 ),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFEAF3E8),
-                  borderRadius: BorderRadius.circular(999),
+                  color: const Color(
+                    0xFFEAF3E8,
+                  ),
+                  borderRadius:
+                      BorderRadius.circular(
+                    999,
+                  ),
                 ),
                 child: Row(
-                  mainAxisSize: MainAxisSize.min,
+                  mainAxisSize:
+                      MainAxisSize.min,
                   children: [
                     Container(
                       width: 5,
                       height: 5,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFF4F7A4A),
-                        shape: BoxShape.circle,
+                      decoration:
+                          const BoxDecoration(
+                        color: Color(
+                          0xFF4F7A4A,
+                        ),
+                        shape:
+                            BoxShape.circle,
                       ),
                     ),
                     const SizedBox(width: 4),
@@ -893,36 +1380,53 @@ class _LatestCryEventCard extends StatelessWidget {
               ),
             ],
           ),
+
           const SizedBox(height: 10),
+
           Container(
-            padding: const EdgeInsets.symmetric(
+            padding:
+                const EdgeInsets.symmetric(
               horizontal: 12,
               vertical: 9,
             ),
             decoration: BoxDecoration(
-              color: AppColors.backgroundCream,
-              borderRadius: BorderRadius.circular(12),
+              color:
+                  AppColors.backgroundCream,
+              borderRadius:
+                  BorderRadius.circular(
+                12,
+              ),
             ),
             child: Column(
               children: [
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  mainAxisAlignment:
+                      MainAxisAlignment
+                          .spaceBetween,
                   children: [
                     Row(
                       children: [
                         Text(
                           'السبب المحتمل: ',
-                          style: AppTextStyles.featureDesc.copyWith(
+                          style: AppTextStyles
+                              .featureDesc
+                              .copyWith(
                             fontSize: 11.5,
-                            color: AppColors.textSecondary,
+                            color: AppColors
+                                .textSecondary,
                           ),
                         ),
                         Text(
                           _cause,
-                          style: AppTextStyles.cardTitle.copyWith(
+                          style: AppTextStyles
+                              .cardTitle
+                              .copyWith(
                             fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.textPrimary,
+                            fontWeight:
+                                FontWeight
+                                    .w600,
+                            color: AppColors
+                                .textPrimary,
                           ),
                         ),
                       ],
@@ -931,56 +1435,83 @@ class _LatestCryEventCard extends StatelessWidget {
                       children: [
                         Text(
                           'نسبة التأكد: ',
-                          style: AppTextStyles.featureDesc.copyWith(
+                          style: AppTextStyles
+                              .featureDesc
+                              .copyWith(
                             fontSize: 11.5,
-                            color: AppColors.textSecondary,
+                            color: AppColors
+                                .textSecondary,
                           ),
                         ),
                         Text(
                           _confidence,
-                          style: AppTextStyles.cardTitle.copyWith(
+                          style: AppTextStyles
+                              .cardTitle
+                              .copyWith(
                             fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.primary,
+                            fontWeight:
+                                FontWeight
+                                    .w600,
+                            color: AppColors
+                                .primary,
                           ),
                         ),
                       ],
                     ),
                   ],
                 ),
+
                 const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 8),
+                  padding:
+                      EdgeInsets.symmetric(
+                    vertical: 8,
+                  ),
                   child: Divider(
                     height: 1,
                     thickness: 1,
-                    color: AppColors.borderBeige,
+                    color:
+                        AppColors.borderBeige,
                   ),
                 ),
+
                 Row(
                   children: [
                     Expanded(
                       child: Row(
-                        mainAxisSize: MainAxisSize.min,
+                        mainAxisSize:
+                            MainAxisSize.min,
                         children: [
                           const Icon(
-                            Icons.thermostat_rounded,
+                            Icons
+                                .thermostat_rounded,
                             size: 15,
-                            color: AppColors.primary,
+                            color:
+                                AppColors.primary,
                           ),
-                          const SizedBox(width: 5),
+                          const SizedBox(
+                            width: 5,
+                          ),
                           Text(
                             'درجة الحرارة: ',
-                            style: AppTextStyles.featureDesc.copyWith(
+                            style: AppTextStyles
+                                .featureDesc
+                                .copyWith(
                               fontSize: 11,
-                              color: AppColors.textSecondary,
+                              color: AppColors
+                                  .textSecondary,
                             ),
                           ),
                           Text(
                             _temperature,
-                            style: AppTextStyles.cardTitle.copyWith(
+                            style: AppTextStyles
+                                .cardTitle
+                                .copyWith(
                               fontSize: 11.5,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.textPrimary,
+                              fontWeight:
+                                  FontWeight
+                                      .w600,
+                              color: AppColors
+                                  .textPrimary,
                             ),
                           ),
                         ],
@@ -989,32 +1520,47 @@ class _LatestCryEventCard extends StatelessWidget {
                     Container(
                       width: 1,
                       height: 14,
-                      color: AppColors.borderBeige,
+                      color:
+                          AppColors.borderBeige,
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Row(
-                        mainAxisSize: MainAxisSize.min,
+                        mainAxisSize:
+                            MainAxisSize.min,
                         children: [
                           const Icon(
-                            Icons.water_drop_outlined,
+                            Icons
+                                .water_drop_outlined,
                             size: 15,
-                            color: Color(0xFF4F7A4A),
+                            color: Color(
+                              0xFF4F7A4A,
+                            ),
                           ),
-                          const SizedBox(width: 5),
+                          const SizedBox(
+                            width: 5,
+                          ),
                           Text(
                             'الرطوبة: ',
-                            style: AppTextStyles.featureDesc.copyWith(
+                            style: AppTextStyles
+                                .featureDesc
+                                .copyWith(
                               fontSize: 11,
-                              color: AppColors.textSecondary,
+                              color: AppColors
+                                  .textSecondary,
                             ),
                           ),
                           Text(
                             _humidity,
-                            style: AppTextStyles.cardTitle.copyWith(
+                            style: AppTextStyles
+                                .cardTitle
+                                .copyWith(
                               fontSize: 11.5,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.textPrimary,
+                              fontWeight:
+                                  FontWeight
+                                      .w600,
+                              color: AppColors
+                                  .textPrimary,
                             ),
                           ),
                         ],
@@ -1055,8 +1601,9 @@ class _QuickStatsRow extends StatelessWidget {
         _StatTile(
           value: durationText,
           label: 'مدة المراقبة',
-          valueColor:
-              isMonitoring ? const Color(0xFF4F7A4A) : AppColors.textPrimary,
+          valueColor: isMonitoring
+              ? const Color(0xFF4F7A4A)
+              : AppColors.textPrimary,
         ),
       ],
     );
@@ -1084,7 +1631,8 @@ class _StatTile extends StatelessWidget {
         ),
         decoration: BoxDecoration(
           color: AppColors.cardSurface,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius:
+              BorderRadius.circular(20),
           boxShadow: const [
             BoxShadow(
               color: Color(0x0D785037),
@@ -1097,15 +1645,19 @@ class _StatTile extends StatelessWidget {
           children: [
             Text(
               value,
-              style: AppTextStyles.screenTitle.copyWith(
+              style: AppTextStyles.screenTitle
+                  .copyWith(
                 fontSize: 20,
-                color: valueColor ?? AppColors.textPrimary,
+                color: valueColor ??
+                    AppColors.textPrimary,
               ),
             ),
             const SizedBox(height: 4),
             Text(
               label,
-              style: AppTextStyles.featureDesc.copyWith(
+              style:
+                  AppTextStyles.featureDesc
+                      .copyWith(
                 fontSize: 11,
               ),
               textAlign: TextAlign.center,
@@ -1123,90 +1675,346 @@ class _StatTile extends StatelessWidget {
 class _ChildDevelopmentCard extends StatelessWidget {
   const _ChildDevelopmentCard();
 
+  int? _ageInMonths(DateTime? dateOfBirth) {
+    if (dateOfBirth == null) return null;
+
+    final now = DateTime.now();
+    int months =
+        (now.year - dateOfBirth.year) * 12 +
+            (now.month - dateOfBirth.month);
+
+    if (now.day < dateOfBirth.day) {
+      months -= 1;
+    }
+
+    return months < 0 ? 0 : months;
+  }
+
+  String _formatAge(int? months) {
+    if (months == null) return 'غير محدد بعد';
+    if (months == 0) return 'أقل من شهر';
+    if (months == 1) return 'شهر واحد';
+    if (months == 2) return 'شهران';
+    if (months >= 3 && months <= 10) {
+      return '$months أشهر';
+    }
+    if (months == 11) return '11 شهرًا';
+
+    final years = months ~/ 12;
+    final remainingMonths = months % 12;
+
+    if (remainingMonths == 0) {
+      return years == 1
+          ? 'سنة واحدة'
+          : '$years سنوات';
+    }
+
+    final yearText = years == 1
+        ? 'سنة'
+        : '$years سنوات';
+
+    final monthText = remainingMonths == 1
+        ? 'وشهر'
+        : remainingMonths == 2
+            ? 'وشهران'
+            : 'و$remainingMonths أشهر';
+
+    return '$yearText $monthText';
+  }
+
+  String _mockActivityForAge(int? months) {
+    // TODO: Replace mock age-based activity with research-backed developmental content.
+    if (months == null) {
+      return 'أكملي بيانات طفلك لعرض نشاط مناسب لعمره.';
+    }
+
+    if (months <= 2) {
+      return 'حرّكي لعبة عالية التباين ببطء أمام طفلك وشجعيه على تتبعها بعينيه.';
+    }
+
+    if (months <= 4) {
+      return 'خصصي وقتًا قصيرًا للاستلقاء على البطن مع وضع لعبة أمامه لتشجيعه على رفع رأسه.';
+    }
+
+    if (months <= 6) {
+      return 'ضعي لعبة آمنة قريبة منه وشجعيه على مد يده والإمساك بها.';
+    }
+
+    if (months <= 9) {
+      return 'ضعي لعبة أمامه على مسافة قصيرة وشجعيه على التحرك للوصول إليها.';
+    }
+
+    if (months <= 12) {
+      return 'شجعيه على نقل لعبة بين يديه ووضعها داخل وعاء ثم إخراجها.';
+    }
+
+    if (months <= 18) {
+      return 'سمّي الأشياء اليومية أمامه واطلبي منه الإشارة إلى الشيء الذي تسمّينه.';
+    }
+
+    return 'شاركيه نشاطًا بسيطًا مناسبًا لعمره مثل المطابقة أو تسمية الصور والأشياء اليومية.';
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 16,
-        vertical: 14,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.cardSurface,
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0D785037),
-            blurRadius: 14,
-            offset: Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
+    return StreamBuilder<
+        DocumentSnapshot<Map<String, dynamic>>>(
+      stream:
+          FirestoreService.instance.watchAccount(),
+      builder: (context, snapshot) {
+        final data = snapshot.data?.data();
+
+        final dobValue =
+            data?['childDateOfBirth'];
+
+        final childName =
+            (data?['childName'] as String?)
+                ?.trim();
+
+        DateTime? dateOfBirth;
+
+        if (dobValue is Timestamp) {
+          dateOfBirth =
+              dobValue.toDate();
+        }
+
+        final ageMonths =
+            _ageInMonths(dateOfBirth);
+
+        final ageText =
+            _formatAge(ageMonths);
+
+        final activity =
+            _mockActivityForAge(
+          ageMonths,
+        );
+
+        return InkWell(
+          borderRadius:
+              BorderRadius.circular(24),
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) =>
+                    const ChildDevelopmentGate(),
+              ),
+            );
+          },
+          child: Container(
+            width: double.infinity,
+            padding:
+                const EdgeInsets.fromLTRB(
+              18,
+              18,
+              18,
+              17,
+            ),
             decoration: BoxDecoration(
-              color: AppColors.iconBg,
-              borderRadius: BorderRadius.circular(14),
-            ),
-            alignment: Alignment.center,
-            child: const Icon(
-              Icons.child_friendly_rounded,
-              size: 22,
-              color: AppColors.primary,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'نمو طفلك',
-                  style: AppTextStyles.cardTitle.copyWith(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                  ),
+              color:
+                  AppColors.cardSurface,
+              borderRadius:
+                  BorderRadius.circular(
+                24,
+              ),
+              border: Border.all(
+                color:
+                    AppColors.borderLight,
+              ),
+              boxShadow: const [
+                BoxShadow(
+                  color:
+                      Color(0x0D785037),
+                  blurRadius: 16,
+                  offset:
+                      Offset(0, 5),
                 ),
-                const SizedBox(height: 3),
-                Text(
-                  'تطور هذا العمر: يبدأ الطفل بتتبع الأشياء بعينيه',
-                  style: AppTextStyles.featureDesc.copyWith(
-                    fontSize: 11,
-                    color: AppColors.textSecondary,
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 48,
+                      height: 48,
+                      decoration:
+                          BoxDecoration(
+                        color:
+                            AppColors.iconBg,
+                        borderRadius:
+                            BorderRadius
+                                .circular(
+                          15,
+                        ),
+                      ),
+                      alignment:
+                          Alignment.center,
+                      child: const Icon(
+                        Icons
+                            .child_friendly_rounded,
+                        size: 24,
+                        color:
+                            AppColors.primary,
+                      ),
+                    ),
+
+                    const SizedBox(
+                      width: 12,
+                    ),
+
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment:
+                            CrossAxisAlignment
+                                .start,
+                        children: [
+                          Text(
+                            'نمو طفلك',
+                            style:
+                                AppTextStyles
+                                    .cardTitle
+                                    .copyWith(
+                              fontSize: 15,
+                              fontWeight:
+                                  FontWeight
+                                      .w700,
+                            ),
+                          ),
+                          const SizedBox(
+                            height: 3,
+                          ),
+                          Text(
+                            childName !=
+                                        null &&
+                                    childName
+                                        .isNotEmpty
+                                ? 'عمر $childName: $ageText'
+                                : 'عمر طفلك: $ageText',
+                            style:
+                                AppTextStyles
+                                    .featureDesc
+                                    .copyWith(
+                              fontSize: 11.5,
+                              color: AppColors
+                                  .textSecondary,
+                              fontWeight:
+                                  FontWeight
+                                      .w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    Row(
+                      mainAxisSize:
+                          MainAxisSize.min,
+                      children: [
+                        Text(
+                          'استكشفي المزيد',
+                          style:
+                              AppTextStyles
+                                  .featureDesc
+                                  .copyWith(
+                            fontSize: 10.5,
+                            color: AppColors
+                                .primary,
+                            fontWeight:
+                                FontWeight
+                                    .w700,
+                          ),
+                        ),
+                        const SizedBox(
+                          width: 3,
+                        ),
+                        const Icon(
+                          Icons
+                              .chevron_left_rounded,
+                          size: 18,
+                          color:
+                              AppColors.primary,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+
+                const SizedBox(
+                  height: 14,
+                ),
+
+                Container(
+                  width: double.infinity,
+                  padding:
+                      const EdgeInsets.all(
+                    13,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors
+                        .backgroundCream,
+                    borderRadius:
+                        BorderRadius.circular(
+                      16,
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment:
+                        CrossAxisAlignment
+                            .start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons
+                                .auto_awesome_rounded,
+                            size: 16,
+                            color:
+                                AppColors.primary,
+                          ),
+                          const SizedBox(
+                            width: 6,
+                          ),
+                          Text(
+                            'نشاط مقترح لهذا العمر',
+                            style:
+                                AppTextStyles
+                                    .cardTitle
+                                    .copyWith(
+                              fontSize: 11.5,
+                              fontWeight:
+                                  FontWeight
+                                      .w700,
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(
+                        height: 7,
+                      ),
+
+                      Text(
+                        activity,
+                        style:
+                            AppTextStyles
+                                .featureDesc
+                                .copyWith(
+                          fontSize: 11.5,
+                          height: 1.65,
+                          color: AppColors
+                              .textSecondary,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
           ),
-          InkWell(
-            borderRadius: BorderRadius.circular(8),
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (context) => const ChildDevelopmentGate(),
-                ),
-              );
-            },
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 4,
-                vertical: 6,
-              ),
-              child: Text(
-                'استكشفي المزيد',
-                style: AppTextStyles.featureDesc.copyWith(
-                  fontSize: 10.5,
-                  color: AppColors.primary,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
@@ -1217,10 +2025,12 @@ class _WhiteNoiseCard extends StatefulWidget {
   const _WhiteNoiseCard();
 
   @override
-  State<_WhiteNoiseCard> createState() => _WhiteNoiseCardState();
+  State<_WhiteNoiseCard> createState() =>
+      _WhiteNoiseCardState();
 }
 
-class _WhiteNoiseCardState extends State<_WhiteNoiseCard> {
+class _WhiteNoiseCardState
+    extends State<_WhiteNoiseCard> {
   bool _isWhiteNoiseOn = false;
 
   @override
@@ -1232,7 +2042,8 @@ class _WhiteNoiseCardState extends State<_WhiteNoiseCard> {
       ),
       decoration: BoxDecoration(
         color: AppColors.cardSurface,
-        borderRadius: BorderRadius.circular(22),
+        borderRadius:
+            BorderRadius.circular(22),
         boxShadow: const [
           BoxShadow(
             color: Color(0x0D785037),
@@ -1242,62 +2053,92 @@ class _WhiteNoiseCardState extends State<_WhiteNoiseCard> {
         ],
       ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
+        crossAxisAlignment:
+            CrossAxisAlignment.center,
         children: [
           Container(
             width: 44,
             height: 44,
             decoration: BoxDecoration(
               color: _isWhiteNoiseOn
-                  ? const Color(0xFFFDEADF)
-                  : const Color(0xFFF5EFEA),
-              borderRadius: BorderRadius.circular(14),
+                  ? const Color(
+                      0xFFFDEADF,
+                    )
+                  : const Color(
+                      0xFFF5EFEA,
+                    ),
+              borderRadius:
+                  BorderRadius.circular(
+                14,
+              ),
             ),
             alignment: Alignment.center,
             child: Icon(
               Icons.graphic_eq_rounded,
               size: 22,
-              color:
-                  _isWhiteNoiseOn ? AppColors.primary : AppColors.textSecondary,
+              color: _isWhiteNoiseOn
+                  ? AppColors.primary
+                  : AppColors
+                      .textSecondary,
             ),
           ),
+
           const SizedBox(width: 12),
+
           Expanded(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
+              mainAxisSize:
+                  MainAxisSize.min,
               children: [
                 Text(
                   'الضوضاء البيضاء',
-                  style: AppTextStyles.cardTitle.copyWith(
+                  style: AppTextStyles
+                      .cardTitle
+                      .copyWith(
                     fontSize: 14,
-                    fontWeight: FontWeight.w600,
+                    fontWeight:
+                        FontWeight.w600,
                   ),
                 ),
-                const SizedBox(height: 3),
+                const SizedBox(
+                  height: 3,
+                ),
                 Text(
-                  _isWhiteNoiseOn ? 'قيد التشغيل' : 'متوقفة حالياً',
-                  style: AppTextStyles.featureDesc.copyWith(
+                  _isWhiteNoiseOn
+                      ? 'قيد التشغيل'
+                      : 'متوقفة حالياً',
+                  style: AppTextStyles
+                      .featureDesc
+                      .copyWith(
                     fontSize: 11,
                     color: _isWhiteNoiseOn
                         ? AppColors.primary
-                        : AppColors.textSecondary,
+                        : AppColors
+                            .textSecondary,
                   ),
                 ),
               ],
             ),
           ),
+
           Switch(
             value: _isWhiteNoiseOn,
             onChanged: (value) {
               setState(() {
-                _isWhiteNoiseOn = value;
+                _isWhiteNoiseOn =
+                    value;
               });
             },
-            activeThumbColor: Colors.white,
-            activeTrackColor: AppColors.primary,
-            inactiveThumbColor: Colors.white,
-            inactiveTrackColor: AppColors.borderBeige,
+            activeThumbColor:
+                Colors.white,
+            activeTrackColor:
+                AppColors.primary,
+            inactiveThumbColor:
+                Colors.white,
+            inactiveTrackColor:
+                AppColors.borderBeige,
           ),
         ],
       ),
@@ -1317,7 +2158,8 @@ class _PrivacyNote extends StatelessWidget {
       ),
       decoration: BoxDecoration(
         color: const Color(0xFFF6EFE7),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius:
+            BorderRadius.circular(20),
       ),
       child: Row(
         children: [
@@ -1330,7 +2172,8 @@ class _PrivacyNote extends StatelessWidget {
           Expanded(
             child: Text(
               'لا يُرفع أي تسجيل صوتي — تُرسل النتائج فقط',
-              style: AppTextStyles.helperText.copyWith(
+              style: AppTextStyles.helperText
+                  .copyWith(
                 fontSize: 12,
                 color: AppColors.textHelper,
               ),
@@ -1339,7 +2182,8 @@ class _PrivacyNote extends StatelessWidget {
           const Icon(
             Icons.chevron_left,
             size: 16,
-            color: AppColors.borderBeige,
+            color:
+                AppColors.borderBeige,
           ),
         ],
       ),
@@ -1382,26 +2226,33 @@ class _MahdBottomNav extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(
+      decoration:
+          const BoxDecoration(
         color: AppColors.cardSurface,
         border: Border(
           top: BorderSide(
-            color: AppColors.borderMedium,
+            color:
+                AppColors.borderMedium,
             width: 1,
           ),
         ),
         boxShadow: [
           BoxShadow(
-            color: Color(0x14785037),
+            color:
+                Color(0x14785037),
             blurRadius: 20,
-            offset: Offset(0, -4),
+            offset: Offset(
+              0,
+              -4,
+            ),
           ),
         ],
       ),
       child: SafeArea(
         top: false,
         child: Padding(
-          padding: const EdgeInsets.symmetric(
+          padding:
+              const EdgeInsets.symmetric(
             vertical: 8,
           ),
           child: Row(
@@ -1409,8 +2260,10 @@ class _MahdBottomNav extends StatelessWidget {
               _items.length,
               (i) => _NavTile(
                 item: _items[i],
-                isSelected: i == currentIndex,
-                onTap: () => onTap(i),
+                isSelected:
+                    i == currentIndex,
+                onTap: () =>
+                    onTap(i),
               ),
             ),
           ),
@@ -1443,25 +2296,39 @@ class _NavTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = isSelected ? AppColors.primary : AppColors.textSecondary;
+    final color = isSelected
+        ? AppColors.primary
+        : AppColors.textSecondary;
 
     return Expanded(
       child: GestureDetector(
         onTap: onTap,
-        behavior: HitTestBehavior.opaque,
+        behavior:
+            HitTestBehavior.opaque,
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisSize:
+              MainAxisSize.min,
           children: [
             AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              padding: const EdgeInsets.symmetric(
+              duration:
+                  const Duration(
+                milliseconds: 200,
+              ),
+              padding:
+                  const EdgeInsets
+                      .symmetric(
                 horizontal: 14,
                 vertical: 6,
               ),
               decoration: isSelected
                   ? BoxDecoration(
-                      color: AppColors.iconBg,
-                      borderRadius: BorderRadius.circular(12),
+                      color:
+                          AppColors.iconBg,
+                      borderRadius:
+                          BorderRadius
+                              .circular(
+                        12,
+                      ),
                     )
                   : null,
               child: Icon(
@@ -1470,13 +2337,19 @@ class _NavTile extends StatelessWidget {
                 size: 22,
               ),
             ),
-            const SizedBox(height: 2),
+            const SizedBox(
+              height: 2,
+            ),
             Text(
               item.label,
-              style: AppTextStyles.helperText.copyWith(
+              style: AppTextStyles
+                  .helperText
+                  .copyWith(
                 fontSize: 10.5,
                 color: color,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                fontWeight: isSelected
+                    ? FontWeight.w600
+                    : FontWeight.w400,
               ),
             ),
           ],
