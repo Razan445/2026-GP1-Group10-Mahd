@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/arabic_number_formatter.dart';
 import '../../services/firestore_service.dart';
 import '../../widgets/app_snack_bar.dart';
 
@@ -224,9 +225,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
     } else if (diffDays == 2) {
       return 'بعد يومين';
     } else if (diffDays > 2 && diffDays <= 10) {
-      return 'بعد $diffDays أيام';
+      return 'بعد ${ArabicNumberFormatter.formatInt(diffDays)} أيام';
     } else if (diffDays > 10) {
-      return 'بعد $diffDays يومًا';
+      return 'بعد ${ArabicNumberFormatter.formatInt(diffDays)} يومًا';
     } else if (diffDays == -1) {
       return 'أمس';
     } else {
@@ -855,8 +856,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           ),
                           onTap: () async {
                             final pickedDate =
-                                await showDatePicker(
-                              context: context,
+                                await _showArabicDatePicker(
                               initialDate:
                                   selectedDate,
                               firstDate:
@@ -890,8 +890,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           ),
                           onTap: () async {
                             final pickedTime =
-                                await showTimePicker(
-                              context: context,
+                                await _showArabicTimePicker(
                               initialTime:
                                   selectedTime,
                             );
@@ -1546,6 +1545,818 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 
   // ═════════════════════════════════════════════════════════════
+  // Arabic date picker
+  // ═════════════════════════════════════════════════════════════
+
+  Future<DateTime?> _showArabicDatePicker({
+    required DateTime initialDate,
+    required DateTime firstDate,
+    required DateTime lastDate,
+  }) async {
+    DateTime selectedDate = DateTime(
+      initialDate.year,
+      initialDate.month,
+      initialDate.day,
+    );
+
+    DateTime visibleMonth = DateTime(
+      initialDate.year,
+      initialDate.month,
+      1,
+    );
+
+    bool isSameDay(DateTime first, DateTime second) {
+      return first.year == second.year &&
+          first.month == second.month &&
+          first.day == second.day;
+    }
+
+    bool isDisabled(DateTime date) {
+      final normalized = DateTime(date.year, date.month, date.day);
+      final minDate = DateTime(firstDate.year, firstDate.month, firstDate.day);
+      final maxDate = DateTime(lastDate.year, lastDate.month, lastDate.day);
+      return normalized.isBefore(minDate) || normalized.isAfter(maxDate);
+    }
+
+    return showDialog<DateTime>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.28),
+      builder: (dialogContext) {
+        return Directionality(
+          textDirection: TextDirection.rtl,
+          child: StatefulBuilder(
+            builder: (context, setDialogState) {
+              final now = DateTime.now();
+              final firstDay = DateTime(
+                visibleMonth.year,
+                visibleMonth.month,
+                1,
+              );
+              final daysInMonth = DateTime(
+                visibleMonth.year,
+                visibleMonth.month + 1,
+                0,
+              ).day;
+              final leadingEmptyCells = firstDay.weekday % 7;
+              final monthName = _arabicMonths[visibleMonth.month - 1];
+
+              const weekDays = [
+                'أحد',
+                'اثن',
+                'ثلا',
+                'أرب',
+                'خمي',
+                'جمع',
+                'سبت',
+              ];
+
+              final firstAllowedMonth = DateTime(
+                firstDate.year,
+                firstDate.month,
+                1,
+              );
+              final lastAllowedMonth = DateTime(
+                lastDate.year,
+                lastDate.month,
+                1,
+              );
+              final previousMonth = DateTime(
+                visibleMonth.year,
+                visibleMonth.month - 1,
+                1,
+              );
+              final nextMonth = DateTime(
+                visibleMonth.year,
+                visibleMonth.month + 1,
+                1,
+              );
+              final canGoPrevious = !previousMonth.isBefore(firstAllowedMonth);
+              final canGoNext = !nextMonth.isAfter(lastAllowedMonth);
+
+              return Dialog(
+                backgroundColor: AppColors.cardSurface,
+                elevation: 0,
+                insetPadding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 24,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 390),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              'اختيار التاريخ',
+                              style: AppTextStyles.cardTitle.copyWith(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const Spacer(),
+                            IconButton(
+                              tooltip: 'إغلاق',
+                              visualDensity: VisualDensity.compact,
+                              onPressed: () => Navigator.of(dialogContext).pop(),
+                              icon: const Icon(
+                                Icons.close_rounded,
+                                color: AppColors.textSecondary,
+                                size: 21,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 12,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.backgroundCream,
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Text(
+                            _formatDate(selectedDate),
+                            textAlign: TextAlign.center,
+                            style: AppTextStyles.screenTitle.copyWith(
+                              fontSize: 18,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            IconButton(
+                              tooltip: 'الشهر السابق',
+                              onPressed: canGoPrevious
+                                  ? () {
+                                      setDialogState(() {
+                                        visibleMonth = previousMonth;
+                                      });
+                                    }
+                                  : null,
+                              icon: const Icon(
+                                Icons.chevron_right_rounded,
+                                color: AppColors.primary,
+                              ),
+                            ),
+                            Text(
+                              '$monthName ${ArabicNumberFormatter.formatInt(visibleMonth.year)}',
+                              style: AppTextStyles.cardTitle.copyWith(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            IconButton(
+                              tooltip: 'الشهر التالي',
+                              onPressed: canGoNext
+                                  ? () {
+                                      setDialogState(() {
+                                        visibleMonth = nextMonth;
+                                      });
+                                    }
+                                  : null,
+                              icon: const Icon(
+                                Icons.chevron_left_rounded,
+                                color: AppColors.primary,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: weekDays
+                              .map(
+                                (day) => Expanded(
+                                  child: Center(
+                                    child: Text(
+                                      day,
+                                      style: AppTextStyles.featureDesc.copyWith(
+                                        fontSize: 10.5,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppColors.textSecondary,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              )
+                              .toList(),
+                        ),
+                        const SizedBox(height: 8),
+                        GridView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: leadingEmptyCells + daysInMonth,
+                          gridDelegate:
+                              const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 7,
+                            mainAxisSpacing: 6,
+                            crossAxisSpacing: 6,
+                          ),
+                          itemBuilder: (context, index) {
+                            if (index < leadingEmptyCells) {
+                              return const SizedBox.shrink();
+                            }
+
+                            final day = index - leadingEmptyCells + 1;
+                            final date = DateTime(
+                              visibleMonth.year,
+                              visibleMonth.month,
+                              day,
+                            );
+                            final disabled = isDisabled(date);
+                            final selected = isSameDay(date, selectedDate);
+                            final today = isSameDay(date, now);
+
+                            return InkWell(
+                              borderRadius: BorderRadius.circular(12),
+                              onTap: disabled
+                                  ? null
+                                  : () {
+                                      setDialogState(() {
+                                        selectedDate = date;
+                                      });
+                                    },
+                              child: Container(
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(
+                                  color: selected
+                                      ? AppColors.primary
+                                      : (today
+                                          ? AppColors.iconBg
+                                          : Colors.transparent),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: today && !selected
+                                      ? Border.all(
+                                          color: AppColors.primary,
+                                          width: 1.2,
+                                        )
+                                      : null,
+                                ),
+                                child: Text(
+                                  ArabicNumberFormatter.formatInt(day),
+                                  style: AppTextStyles.featureDesc.copyWith(
+                                    fontSize: 12,
+                                    fontWeight: selected || today
+                                        ? FontWeight.w700
+                                        : FontWeight.w600,
+                                    color: disabled
+                                        ? AppColors.textSecondary.withValues(
+                                            alpha: 0.35,
+                                          )
+                                        : selected
+                                            ? Colors.white
+                                            : today
+                                                ? AppColors.primaryDark
+                                                : AppColors.textPrimary,
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 18),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: () => Navigator.of(dialogContext).pop(),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: AppColors.textPrimary,
+                                  side: const BorderSide(
+                                    color: AppColors.borderBeige,
+                                  ),
+                                  minimumSize: const Size(double.infinity, 48),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                ),
+                                child: Text(
+                                  'إلغاء',
+                                  style: AppTextStyles.buttonTextDark.copyWith(
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () {
+                                  Navigator.of(dialogContext).pop(selectedDate);
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.primary,
+                                  foregroundColor: Colors.white,
+                                  elevation: 0,
+                                  minimumSize: const Size(double.infinity, 48),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                ),
+                                child: Text(
+                                  'تأكيد',
+                                  style: AppTextStyles.buttonText.copyWith(
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  // ═════════════════════════════════════════════════════════════
+  // Arabic time picker
+  // ═════════════════════════════════════════════════════════════
+
+  Future<TimeOfDay?> _showArabicTimePicker({
+    required TimeOfDay initialTime,
+  }) async {
+    int selectedHour = initialTime.hourOfPeriod == 0
+        ? 12
+        : initialTime.hourOfPeriod;
+    int selectedMinute = initialTime.minute;
+    bool isAm = initialTime.period == DayPeriod.am;
+
+    final hourController = TextEditingController(
+      text: ArabicNumberFormatter.formatInt(selectedHour),
+    );
+
+    final minuteController = TextEditingController(
+      text: ArabicNumberFormatter.toArabic(
+        selectedMinute.toString().padLeft(2, '0'),
+      ),
+    );
+
+    String? hourError;
+    String? minuteError;
+
+    int? parseArabicNumber(String value) {
+      final westernValue = value
+          .replaceAll('٠', '0')
+          .replaceAll('١', '1')
+          .replaceAll('٢', '2')
+          .replaceAll('٣', '3')
+          .replaceAll('٤', '4')
+          .replaceAll('٥', '5')
+          .replaceAll('٦', '6')
+          .replaceAll('٧', '7')
+          .replaceAll('٨', '8')
+          .replaceAll('٩', '9')
+          .trim();
+
+      return int.tryParse(westernValue);
+    }
+
+    Future<int?> showNumberList({
+      required String title,
+      required int min,
+      required int max,
+      required int selectedValue,
+      required bool padWithZero,
+    }) {
+      return showDialog<int>(
+        context: context,
+        barrierColor: Colors.black.withValues(alpha: 0.20),
+        builder: (listContext) {
+          return Directionality(
+            textDirection: TextDirection.rtl,
+            child: Dialog(
+              backgroundColor: AppColors.cardSurface,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(
+                  maxWidth: 300,
+                  maxHeight: 440,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(18, 18, 18, 12),
+                      child: Row(
+                        children: [
+                          Text(
+                            title,
+                            style: AppTextStyles.cardTitle.copyWith(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const Spacer(),
+                          IconButton(
+                            tooltip: 'إغلاق',
+                            visualDensity: VisualDensity.compact,
+                            onPressed: () {
+                              Navigator.of(listContext).pop();
+                            },
+                            icon: const Icon(
+                              Icons.close_rounded,
+                              color: AppColors.textSecondary,
+                              size: 20,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Divider(
+                      height: 1,
+                      color: AppColors.borderLight,
+                    ),
+                    Flexible(
+                      child: ListView.builder(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        itemCount: max - min + 1,
+                        itemBuilder: (context, index) {
+                          final value = min + index;
+                          final isSelected = value == selectedValue;
+                          final displayValue = padWithZero
+                              ? ArabicNumberFormatter.toArabic(
+                                  value.toString().padLeft(2, '0'),
+                                )
+                              : ArabicNumberFormatter.formatInt(value);
+
+                          return InkWell(
+                            onTap: () {
+                              Navigator.of(listContext).pop(value);
+                            },
+                            child: Container(
+                              margin: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 2,
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 11,
+                              ),
+                              decoration: BoxDecoration(
+                                color: isSelected
+                                    ? AppColors.iconBg
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      displayValue,
+                                      textAlign: TextAlign.center,
+                                      style: AppTextStyles.cardTitle.copyWith(
+                                        fontSize: 14,
+                                        fontWeight: isSelected
+                                            ? FontWeight.w700
+                                            : FontWeight.w500,
+                                        color: isSelected
+                                            ? AppColors.primaryDark
+                                            : AppColors.textPrimary,
+                                      ),
+                                    ),
+                                  ),
+                                  if (isSelected)
+                                    const Icon(
+                                      Icons.check_rounded,
+                                      size: 18,
+                                      color: AppColors.primary,
+                                    ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      );
+    }
+
+    final result = await showDialog<TimeOfDay>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.28),
+      builder: (dialogContext) {
+        return Directionality(
+          textDirection: TextDirection.rtl,
+          child: StatefulBuilder(
+            builder: (context, setDialogState) {
+              void updateHourFromText(String value) {
+                final parsed = parseArabicNumber(value);
+
+                if (parsed != null && parsed >= 1 && parsed <= 12) {
+                  setDialogState(() {
+                    selectedHour = parsed;
+                    hourError = null;
+                  });
+                }
+              }
+
+              void updateMinuteFromText(String value) {
+                final parsed = parseArabicNumber(value);
+
+                if (parsed != null && parsed >= 0 && parsed <= 59) {
+                  setDialogState(() {
+                    selectedMinute = parsed;
+                    minuteError = null;
+                  });
+                }
+              }
+
+              return Dialog(
+                backgroundColor: AppColors.cardSurface,
+                elevation: 0,
+                insetPadding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 24,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 390),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+                    child: SingleChildScrollView(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Row(
+                            children: [
+                              Text(
+                                'اختيار الوقت',
+                                style: AppTextStyles.cardTitle.copyWith(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const Spacer(),
+                              IconButton(
+                                tooltip: 'إغلاق',
+                                visualDensity: VisualDensity.compact,
+                                onPressed: () {
+                                  Navigator.of(dialogContext).pop();
+                                },
+                                icon: const Icon(
+                                  Icons.close_rounded,
+                                  color: AppColors.textSecondary,
+                                  size: 21,
+                                ),
+                              ),
+                            ],
+                          ),
+
+                          const SizedBox(height: 16),
+
+                          Directionality(
+                            textDirection: TextDirection.ltr,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _ArabicTimeInputBox(
+                                  label: 'الساعة',
+                                  controller: hourController,
+                                  errorText: hourError,
+                                  onChanged: updateHourFromText,
+                                  onPick: () async {
+                                    final picked = await showNumberList(
+                                      title: 'اختيار الساعة',
+                                      min: 1,
+                                      max: 12,
+                                      selectedValue: selectedHour,
+                                      padWithZero: false,
+                                    );
+
+                                    if (picked != null) {
+                                      setDialogState(() {
+                                        selectedHour = picked;
+                                        hourController.text =
+                                            ArabicNumberFormatter.formatInt(
+                                          picked,
+                                        );
+                                        hourError = null;
+                                      });
+                                    }
+                                  },
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.only(
+                                    left: 8,
+                                    right: 8,
+                                    top: 29,
+                                  ),
+                                  child: Text(
+                                    ':',
+                                    style: AppTextStyles.screenTitle.copyWith(
+                                      fontSize: 28,
+                                      color: AppColors.textPrimary,
+                                    ),
+                                  ),
+                                ),
+                                _ArabicTimeInputBox(
+                                  label: 'الدقيقة',
+                                  controller: minuteController,
+                                  errorText: minuteError,
+                                  onChanged: updateMinuteFromText,
+                                  onPick: () async {
+                                    final picked = await showNumberList(
+                                      title: 'اختيار الدقيقة',
+                                      min: 0,
+                                      max: 59,
+                                      selectedValue: selectedMinute,
+                                      padWithZero: true,
+                                    );
+
+                                    if (picked != null) {
+                                      setDialogState(() {
+                                        selectedMinute = picked;
+                                        minuteController.text =
+                                            ArabicNumberFormatter.toArabic(
+                                          picked
+                                              .toString()
+                                              .padLeft(2, '0'),
+                                        );
+                                        minuteError = null;
+                                      });
+                                    }
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          const SizedBox(height: 14),
+
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              _ArabicPeriodButton(
+                                label: 'ص',
+                                isSelected: isAm,
+                                onTap: () {
+                                  setDialogState(() {
+                                    isAm = true;
+                                  });
+                                },
+                              ),
+                              const SizedBox(width: 8),
+                              _ArabicPeriodButton(
+                                label: 'م',
+                                isSelected: !isAm,
+                                onTap: () {
+                                  setDialogState(() {
+                                    isAm = false;
+                                  });
+                                },
+                              ),
+                            ],
+                          ),
+
+                          const SizedBox(height: 22),
+
+                          Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton(
+                                  onPressed: () {
+                                    Navigator.of(dialogContext).pop();
+                                  },
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: AppColors.textPrimary,
+                                    side: const BorderSide(
+                                      color: AppColors.borderBeige,
+                                    ),
+                                    minimumSize: const Size(
+                                      double.infinity,
+                                      48,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(14),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    'إلغاء',
+                                    style:
+                                        AppTextStyles.buttonTextDark.copyWith(
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: ElevatedButton(
+                                  onPressed: () {
+                                    final parsedHour = parseArabicNumber(
+                                      hourController.text,
+                                    );
+                                    final parsedMinute = parseArabicNumber(
+                                      minuteController.text,
+                                    );
+
+                                    final validHour = parsedHour != null &&
+                                        parsedHour >= 1 &&
+                                        parsedHour <= 12;
+
+                                    final validMinute = parsedMinute != null &&
+                                        parsedMinute >= 0 &&
+                                        parsedMinute <= 59;
+
+                                    if (!validHour || !validMinute) {
+                                      setDialogState(() {
+                                        hourError = validHour
+                                            ? null
+                                            : 'من ١ إلى ١٢';
+                                        minuteError = validMinute
+                                            ? null
+                                            : 'من ٠٠ إلى ٥٩';
+                                      });
+                                      return;
+                                    }
+
+                                    selectedHour = parsedHour;
+                                    selectedMinute = parsedMinute;
+
+                                    final hour24 = isAm
+                                        ? (selectedHour == 12
+                                            ? 0
+                                            : selectedHour)
+                                        : (selectedHour == 12
+                                            ? 12
+                                            : selectedHour + 12);
+
+                                    Navigator.of(dialogContext).pop(
+                                      TimeOfDay(
+                                        hour: hour24,
+                                        minute: selectedMinute,
+                                      ),
+                                    );
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppColors.primary,
+                                    foregroundColor: Colors.white,
+                                    elevation: 0,
+                                    minimumSize: const Size(
+                                      double.infinity,
+                                      48,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(14),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    'تأكيد',
+                                    style: AppTextStyles.buttonText.copyWith(
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
+
+    
+    return result;
+  }
+
+  // ═════════════════════════════════════════════════════════════
   // Formatting
   // ═════════════════════════════════════════════════════════════
 
@@ -1556,7 +2367,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
         _arabicMonths[
             date.month - 1];
 
-    return '${date.day} $monthName ${date.year}';
+    return '${ArabicNumberFormatter.formatInt(date.day)} '
+        '$monthName '
+        '${ArabicNumberFormatter.formatInt(date.year)}';
   }
 
   String _formatTime(
@@ -1582,7 +2395,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
               '0',
             );
 
-    return '$hour:$minute $period';
+    return ArabicNumberFormatter.toArabic(
+      '$hour:$minute $period',
+    );
   }
 
   bool get _isViewingCurrentMonth {
@@ -2144,7 +2959,7 @@ class _MonthCard
                     onPreviousMonth,
               ),
               Text(
-                '$monthName ${visibleMonth.year}',
+                '$monthName ${ArabicNumberFormatter.formatInt(visibleMonth.year)}',
                 style:
                     AppTextStyles
                         .cardTitle
@@ -2373,7 +3188,7 @@ class _CalendarDay
               Alignment.center,
           children: [
             Text(
-              '$day',
+              ArabicNumberFormatter.formatInt(day),
               style:
                   AppTextStyles
                       .featureDesc
@@ -3043,6 +3858,142 @@ class _AppointmentCard
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════
+// Arabic time picker helper widgets
+// ═════════════════════════════════════════════════════════════════
+
+class _ArabicTimeInputBox extends StatelessWidget {
+  const _ArabicTimeInputBox({
+    required this.label,
+    required this.controller,
+    required this.onChanged,
+    required this.onPick,
+    this.errorText,
+  });
+
+  final String label;
+  final TextEditingController controller;
+  final ValueChanged<String> onChanged;
+  final VoidCallback onPick;
+  final String? errorText;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 130,
+      child: Directionality(
+        textDirection: TextDirection.rtl,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: AppTextStyles.featureDesc.copyWith(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 6),
+            TextField(
+              controller: controller,
+              keyboardType: TextInputType.number,
+              textAlign: TextAlign.center,
+              textDirection: TextDirection.ltr,
+              onChanged: onChanged,
+              style: AppTextStyles.screenTitle.copyWith(
+                fontSize: 26,
+                color: AppColors.textPrimary,
+              ),
+              decoration: InputDecoration(
+                errorText: errorText,
+                errorStyle: AppTextStyles.helperText.copyWith(
+                  fontSize: 9,
+                  color: AppColors.alert,
+                ),
+                filled: true,
+                fillColor: AppColors.backgroundCream,
+                contentPadding: const EdgeInsets.fromLTRB(
+                  8,
+                  18,
+                  8,
+                  18,
+                ),
+                suffixIcon: IconButton(
+                  tooltip: 'اختيار من القائمة',
+                  onPressed: onPick,
+                  icon: const Icon(
+                    Icons.arrow_drop_down_rounded,
+                    color: AppColors.primary,
+                  ),
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: const BorderSide(
+                    color: AppColors.borderLight,
+                  ),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: const BorderSide(
+                    color: AppColors.borderLight,
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: const BorderSide(
+                    color: AppColors.primary,
+                    width: 1.2,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ArabicPeriodButton extends StatelessWidget {
+  const _ArabicPeriodButton({
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        width: 46,
+        height: 36,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.iconBg : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Text(
+          label,
+          style: AppTextStyles.featureDesc.copyWith(
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            color: isSelected
+                ? AppColors.primaryDark
+                : AppColors.textSecondary,
+          ),
+        ),
       ),
     );
   }

@@ -33,18 +33,41 @@ class PdfExportService {
   static final PdfExportService instance = PdfExportService._();
 
   // ── Mahd PDF Color Palette (matching AppColors) ──────────────────
-  static const PdfColor _bgCream = PdfColor.fromInt(0xFFFBF5EF);
-  static const PdfColor _bgBeige = PdfColor.fromInt(0xFFF4EBE2);
-  static const PdfColor _cardSurface = PdfColor.fromInt(0xFFFFFFFF);
-  static const PdfColor _primary = PdfColor.fromInt(0xFFCE7E52);
-  static const PdfColor _primaryLight = PdfColor.fromInt(0xFFE9A97F);
-  static const PdfColor _iconBg = PdfColor.fromInt(0xFFFDEADF);
-  static const PdfColor _textPrimary = PdfColor.fromInt(0xFF3A2B23);
-  static const PdfColor _textSecondary = PdfColor.fromInt(0xFF7C6355);
-  static const PdfColor _borderBeige = PdfColor.fromInt(0xFFEFDDD0);
-  static const PdfColor _borderLight = PdfColor.fromInt(0xFFF1E4D9);
-  static const PdfColor _success = PdfColor.fromInt(0xFF7E9B7A);
-  static const PdfColor _successBg = PdfColor.fromInt(0xFFEDF2EB);
+  static const PdfColor _bgCream =
+      PdfColor.fromInt(0xFFFBF5EF);
+
+  static const PdfColor _bgBeige =
+      PdfColor.fromInt(0xFFF4EBE2);
+
+  static const PdfColor _cardSurface =
+      PdfColor.fromInt(0xFFFFFFFF);
+
+  static const PdfColor _primary =
+      PdfColor.fromInt(0xFFCE7E52);
+
+  static const PdfColor _primaryLight =
+      PdfColor.fromInt(0xFFE9A97F);
+
+  static const PdfColor _iconBg =
+      PdfColor.fromInt(0xFFFDEADF);
+
+  static const PdfColor _textPrimary =
+      PdfColor.fromInt(0xFF3A2B23);
+
+  static const PdfColor _textSecondary =
+      PdfColor.fromInt(0xFF7C6355);
+
+  static const PdfColor _borderBeige =
+      PdfColor.fromInt(0xFFEFDDD0);
+
+  static const PdfColor _borderLight =
+      PdfColor.fromInt(0xFFF1E4D9);
+
+  static const PdfColor _success =
+      PdfColor.fromInt(0xFF7E9B7A);
+
+  static const PdfColor _successBg =
+      PdfColor.fromInt(0xFFEDF2EB);
 
   /// Builds the PDF document bytes and triggers the platform share/download sheet.
   Future<void> exportMonitoringReport({
@@ -91,14 +114,23 @@ class PdfExportService {
     pw.Font? customBoldFont,
   }) async {
     final regularFont =
-        customRegularFont ?? await PdfGoogleFonts.iBMPlexSansArabicRegular();
+        customRegularFont ??
+        await PdfGoogleFonts.iBMPlexSansArabicRegular();
+
     final boldFont =
-        customBoldFont ?? await PdfGoogleFonts.iBMPlexSansArabicBold();
+        customBoldFont ??
+        await PdfGoogleFonts.iBMPlexSansArabicBold();
 
     pw.MemoryImage? logoImage;
+
     try {
-      final logoBytes = await rootBundle.load('assets/images/mahd-logo.png');
-      logoImage = pw.MemoryImage(logoBytes.buffer.asUint8List());
+      final logoBytes = await rootBundle.load(
+        'assets/images/mahd-logo.png',
+      );
+
+      logoImage = pw.MemoryImage(
+        logoBytes.buffer.asUint8List(),
+      );
     } catch (_) {
       logoImage = null;
     }
@@ -108,80 +140,155 @@ class PdfExportService {
       author: 'تطبيق مهد',
     );
 
+    final generatedAt = _formatGeneratedDate(
+      DateTime.now(),
+    );
+
     doc.addPage(
-      pw.MultiPage(
-        pageTheme: pw.PageTheme(
-          pageFormat: PdfPageFormat.a4,
-          textDirection: pw.TextDirection.rtl,
-          margin: const pw.EdgeInsets.all(28),
-          theme: pw.ThemeData.withFont(
-            base: regularFont,
-            bold: boldFont,
-            fontFallback: [pw.Font.helvetica()],
-          ),
-          buildBackground: (_) => pw.FullPage(
-            ignoreMargins: true,
-            child: pw.Container(color: _bgCream),
-          ),
+      pw.Page(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.fromLTRB(
+          34,
+          28,
+          34,
+          24,
         ),
-        footer: (context) => pw.Container(
-          margin: const pw.EdgeInsets.only(top: 12),
-          padding: const pw.EdgeInsets.only(top: 8),
-          decoration: const pw.BoxDecoration(
-            border: pw.Border(
-              top: pw.BorderSide(color: _borderBeige, width: 0.8),
+        theme: pw.ThemeData.withFont(
+          base: regularFont,
+          bold: boldFont,
+          fontFallback: [
+            pw.Font.helvetica(),
+          ],
+        ),
+        build: (context) {
+          return pw.Directionality(
+            textDirection: pw.TextDirection.rtl,
+            child: pw.Column(
+              crossAxisAlignment:
+                  pw.CrossAxisAlignment.stretch,
+              children: [
+                // ── 1. Report Header ───────────────────────────────────────
+                _buildHeader(
+                  logoImage: logoImage,
+                  generatedAt: generatedAt,
+                ),
+
+                pw.SizedBox(height: 14),
+
+                _buildDivider(),
+
+                pw.SizedBox(height: 12),
+
+                // ── Report information ─────────────────────────────────────
+                _buildReportInformation(
+                  periodLabel: periodLabel,
+                  dateRangeLabel:
+                      _toArabicDigits(dateRangeLabel),
+                ),
+
+                pw.SizedBox(height: 14),
+
+                // ── 2. Summary Tiles ───────────────────────────────────────
+                _buildSectionTitle(
+                  'ملخص المراقبة',
+                ),
+
+                pw.SizedBox(height: 7),
+
+                _buildSummaryTable(
+                  totalCryEvents:
+                      _toArabicDigits(totalCryEvents),
+                  monitoringDuration:
+                      _toArabicDigits(monitoringDuration),
+                  latestCause: latestCause,
+                ),
+
+                pw.SizedBox(height: 15),
+
+                // ── 3. Crying Trends Chart ─────────────────────────────────
+                _buildSectionTitle(
+                  'نشاط البكاء',
+                ),
+
+                pw.SizedBox(height: 5),
+
+                if (peakSlotHint != null &&
+                    peakSlotHint.isNotEmpty)
+                  pw.Text(
+                    _toArabicDigits(
+                      peakSlotHint,
+                    ),
+                    style:
+                        const pw.TextStyle(
+                      fontSize: 9,
+                      color:
+                          _textSecondary,
+                    ),
+                  ),
+
+                if (peakSlotHint != null &&
+                    peakSlotHint.isNotEmpty)
+                  pw.SizedBox(height: 5),
+
+                _buildTrendsChart(
+                  chartTitle: chartTitle,
+                  trendStats: trendStats,
+                ),
+
+                pw.SizedBox(height: 15),
+
+                // ── 4. Cause Distribution Card ─────────────────────────────
+                _buildSectionTitle(
+                  'توزيع الأسباب المحتملة',
+                ),
+
+                pw.SizedBox(height: 7),
+
+                _buildCausesTable(
+                  causeStats: causeStats,
+                ),
+
+                pw.Spacer(),
+
+                // ── Report disclaimer ───────────────────────────────────────
+                _buildDisclaimer(),
+
+                pw.SizedBox(height: 10),
+
+                _buildDivider(),
+
+                pw.SizedBox(height: 6),
+
+                // ── Footer ──────────────────────────────────────────────────
+                pw.Row(
+                  mainAxisAlignment:
+                      pw.MainAxisAlignment
+                          .spaceBetween,
+                  children: [
+                    pw.Text(
+                      'تطبيق مهد — مراقبة ذكية للأطفال',
+                      style:
+                          const pw.TextStyle(
+                        fontSize: 8,
+                        color:
+                            _textSecondary,
+                      ),
+                    ),
+                    pw.Text(
+                      'تقرير تم إنشاؤه بواسطة مهد',
+                      style:
+                          const pw.TextStyle(
+                        fontSize: 8,
+                        color:
+                            _textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
-          ),
-          child: pw.Row(
-            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-            children: [
-              pw.Text(
-                'تطبيق مهد — مراقبة صوتية ذكية للأطفال',
-                style: const pw.TextStyle(
-                  fontSize: 9.5,
-                  color: _textSecondary,
-                ),
-              ),
-              pw.Text(
-                'صفحة ${context.pageNumber} من ${context.pagesCount}',
-                style: const pw.TextStyle(
-                  fontSize: 9.5,
-                  color: _textSecondary,
-                ),
-              ),
-            ],
-          ),
-        ),
-        build: (context) => [
-          // ── 1. Report Header ───────────────────────────────────────
-          _buildHeader(
-            logoImage: logoImage,
-            periodLabel: periodLabel,
-            dateRangeLabel: dateRangeLabel,
-          ),
-          pw.SizedBox(height: 18),
-
-          // ── 2. Summary Tiles ───────────────────────────────────────
-          _buildSectionTitle('ملخص المراقبة'),
-          pw.SizedBox(height: 10),
-          _buildSummaryRow(
-            totalCryEvents: totalCryEvents,
-            monitoringDuration: monitoringDuration,
-            latestCause: latestCause,
-          ),
-          pw.SizedBox(height: 18),
-
-          // ── 3. Crying Trends Chart ─────────────────────────────────
-          _buildTrendsCard(
-            chartTitle: chartTitle,
-            peakSlotHint: peakSlotHint,
-            trendStats: trendStats,
-          ),
-          pw.SizedBox(height: 18),
-
-          // ── 4. Cause Distribution Card ─────────────────────────────
-          _buildCausesCard(causeStats: causeStats),
-        ],
+          );
+        },
       ),
     );
 
@@ -194,409 +301,679 @@ class PdfExportService {
 
   pw.Widget _buildHeader({
     required pw.MemoryImage? logoImage,
-    required String periodLabel,
-    required String dateRangeLabel,
+    required String generatedAt,
   }) {
-    return pw.Container(
-      padding: const pw.EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-      decoration: pw.BoxDecoration(
-        color: _cardSurface,
-        borderRadius: pw.BorderRadius.circular(16),
-        border: pw.Border.all(color: _borderBeige, width: 1),
-      ),
-      child: pw.Row(
-        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-        crossAxisAlignment: pw.CrossAxisAlignment.center,
-        children: [
-          pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
+    return pw.Row(
+      crossAxisAlignment:
+          pw.CrossAxisAlignment.center,
+      children: [
+        pw.Expanded(
+          child: pw.Column(
+            crossAxisAlignment:
+                pw.CrossAxisAlignment.start,
             children: [
               pw.Text(
-                'تقرير المراقبة والإحصائيات',
-                style: const pw.TextStyle(
-                  fontSize: 18,
-                  fontWeight: pw.FontWeight.bold,
-                  color: _textPrimary,
+                'تقرير مراقبة الطفل',
+                style:
+                    const pw.TextStyle(
+                  fontSize: 20,
+                  fontWeight:
+                      pw.FontWeight.bold,
+                  color:
+                      _textPrimary,
                 ),
               ),
-              pw.SizedBox(height: 4),
+              pw.SizedBox(height: 3),
               pw.Text(
-                'ملخص المراقبة وإحصائيات أنماط البكاء',
-                style: const pw.TextStyle(
-                  fontSize: 11,
-                  color: _textSecondary,
+                'ملخص المراقبة وتحليل أنماط البكاء',
+                style:
+                    const pw.TextStyle(
+                  fontSize: 9.5,
+                  color:
+                      _textSecondary,
                 ),
               ),
-              pw.SizedBox(height: 8),
-              pw.Row(
-                children: [
-                  pw.Container(
-                    padding: const pw.EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
-                    ),
-                    decoration: pw.BoxDecoration(
-                      color: _primary,
-                      borderRadius: pw.BorderRadius.circular(20),
-                    ),
-                    child: pw.Text(
-                      'التقرير: $periodLabel',
-                      style: const pw.TextStyle(
-                        fontSize: 10,
-                        fontWeight: pw.FontWeight.bold,
-                        color: PdfColors.white,
-                      ),
-                    ),
-                  ),
-                  pw.SizedBox(width: 8),
-                  pw.Container(
-                    padding: const pw.EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
-                    ),
-                    decoration: pw.BoxDecoration(
-                      color: _bgBeige,
-                      borderRadius: pw.BorderRadius.circular(20),
-                    ),
-                    child: pw.Text(
-                      'الفترة: $dateRangeLabel',
-                      style: const pw.TextStyle(
-                        fontSize: 10,
-                        color: _textPrimary,
-                      ),
-                    ),
-                  ),
-                ],
+              pw.SizedBox(height: 5),
+              pw.Text(
+                'تاريخ إصدار التقرير: $generatedAt',
+                style:
+                    const pw.TextStyle(
+                  fontSize: 8.5,
+                  color:
+                      _textSecondary,
+                ),
               ),
             ],
           ),
-          if (logoImage != null)
-            pw.Container(
-              width: 56,
-              height: 56,
-              alignment: pw.Alignment.center,
-              child: pw.Image(logoImage, fit: pw.BoxFit.contain),
-            )
-          else
-            pw.Container(
-              padding: const pw.EdgeInsets.symmetric(
-                horizontal: 14,
-                vertical: 8,
-              ),
-              decoration: pw.BoxDecoration(
-                color: _iconBg,
-                borderRadius: pw.BorderRadius.circular(12),
-              ),
-              child: pw.Text(
-                'مهد',
-                style: const pw.TextStyle(
-                  fontSize: 16,
-                  fontWeight: pw.FontWeight.bold,
-                  color: _primary,
-                ),
-              ),
+        ),
+
+        if (logoImage != null)
+          pw.SizedBox(
+            width: 65,
+            height: 42,
+            child: pw.Image(
+              logoImage,
+              fit: pw.BoxFit.contain,
             ),
-        ],
-      ),
+          )
+        else
+          pw.Text(
+            'مهد',
+            style:
+                const pw.TextStyle(
+              fontSize: 18,
+              fontWeight:
+                  pw.FontWeight.bold,
+              color: _primary,
+            ),
+          ),
+      ],
     );
   }
 
-  pw.Widget _buildSectionTitle(String title) {
-    return pw.Text(
-      title,
-      style: const pw.TextStyle(
-        fontSize: 14,
-        fontWeight: pw.FontWeight.bold,
-        color: _textPrimary,
-      ),
+  pw.Widget _buildDivider() {
+    return pw.Container(
+      height: 1,
+      color: _borderBeige,
     );
   }
 
-  pw.Widget _buildSummaryRow({
-    required String totalCryEvents,
-    required String monitoringDuration,
-    required String latestCause,
+  pw.Widget _buildReportInformation({
+    required String periodLabel,
+    required String dateRangeLabel,
   }) {
+    return pw.Table(
+      border: pw.TableBorder.all(
+        color: _borderLight,
+        width: 0.7,
+      ),
+      columnWidths: const {
+        0: pw.FlexColumnWidth(2),
+        1: pw.FlexColumnWidth(1),
+        2: pw.FlexColumnWidth(2),
+        3: pw.FlexColumnWidth(1),
+      },
+      children: [
+        pw.TableRow(
+          decoration:
+              const pw.BoxDecoration(
+            color: _bgCream,
+          ),
+          children: [
+            // Because PDF tables keep their physical column order,
+            // the cells are arranged so the Arabic report reads
+            // correctly from right to left:
+            // الفترة | القيمة | نوع التقرير | القيمة
+            _buildTableCell(
+              periodLabel,
+            ),
+            _buildTableCell(
+              'نوع التقرير',
+              bold: true,
+              background:
+                  _bgBeige,
+            ),
+            _buildTableCell(
+              dateRangeLabel,
+            ),
+            _buildTableCell(
+              'الفترة',
+              bold: true,
+              background:
+                  _bgBeige,
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  pw.Widget _buildSectionTitle(
+    String title,
+  ) {
     return pw.Row(
       children: [
-        pw.Expanded(
-          child: _buildSummaryTile(
-            label: 'أحداث البكاء',
-            value: totalCryEvents,
-            accentBg: _iconBg,
-            accentColor: _primary,
-          ),
+        pw.Container(
+          width: 4,
+          height: 17,
+          color: _primary,
         ),
-        pw.SizedBox(width: 10),
-        pw.Expanded(
-          child: _buildSummaryTile(
-            label: 'مدة المراقبة',
-            value: monitoringDuration,
-            accentBg: _successBg,
-            accentColor: _success,
-          ),
-        ),
-        pw.SizedBox(width: 10),
-        pw.Expanded(
-          child: _buildSummaryTile(
-            label: 'آخر سبب محتمل',
-            value: latestCause,
-            accentBg: _bgBeige,
-            accentColor: _primaryLight,
+        pw.SizedBox(width: 7),
+        pw.Text(
+          title,
+          style:
+              const pw.TextStyle(
+            fontSize: 12,
+            fontWeight:
+                pw.FontWeight.bold,
+            color: _textPrimary,
           ),
         ),
       ],
     );
   }
 
-  pw.Widget _buildSummaryTile({
-    required String label,
-    required String value,
-    required PdfColor accentBg,
-    required PdfColor accentColor,
+  pw.Widget _buildSummaryTable({
+    required String totalCryEvents,
+    required String monitoringDuration,
+    required String latestCause,
+  }) {
+    return pw.Table(
+      border: pw.TableBorder.all(
+        color: _borderLight,
+        width: 0.7,
+      ),
+      columnWidths: const {
+        0: pw.FlexColumnWidth(1),
+        1: pw.FlexColumnWidth(1),
+        2: pw.FlexColumnWidth(1),
+      },
+      children: [
+        pw.TableRow(
+          decoration:
+              const pw.BoxDecoration(
+            color: _bgBeige,
+          ),
+          children: [
+            _buildTableCell(
+              'أحداث البكاء',
+              bold: true,
+              centered: true,
+            ),
+            _buildTableCell(
+              'مدة المراقبة',
+              bold: true,
+              centered: true,
+            ),
+            _buildTableCell(
+              'آخر سبب محتمل',
+              bold: true,
+              centered: true,
+            ),
+          ],
+        ),
+        pw.TableRow(
+          children: [
+            _buildTableCell(
+              totalCryEvents,
+              centered: true,
+              valueStyle: true,
+            ),
+            _buildTableCell(
+              monitoringDuration,
+              centered: true,
+              valueStyle: true,
+            ),
+            _buildTableCell(
+              latestCause,
+              centered: true,
+              valueStyle: true,
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  pw.Widget _buildTableCell(
+    String text, {
+    bool bold = false,
+    bool centered = false,
+    bool valueStyle = false,
+    PdfColor? background,
   }) {
     return pw.Container(
-      padding: const pw.EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      decoration: pw.BoxDecoration(
-        color: _cardSurface,
-        borderRadius: pw.BorderRadius.circular(14),
-        border: pw.Border.all(color: _borderLight, width: 1),
+      color: background,
+      padding:
+          const pw.EdgeInsets.symmetric(
+        horizontal: 8,
+        vertical: 7,
       ),
-      child: pw.Row(
-        children: [
-          pw.Container(
-            width: 10,
-            height: 32,
-            decoration: pw.BoxDecoration(
-              color: accentColor,
-              borderRadius: pw.BorderRadius.circular(5),
-            ),
-          ),
-          pw.SizedBox(width: 10),
-          pw.Expanded(
-            child: pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                pw.Text(
-                  value,
-                  style: const pw.TextStyle(
-                    fontSize: 14,
-                    fontWeight: pw.FontWeight.bold,
-                    color: _textPrimary,
-                  ),
-                ),
-                pw.SizedBox(height: 2),
-                pw.Text(
-                  label,
-                  style: const pw.TextStyle(
-                    fontSize: 10,
-                    color: _textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
+      alignment: centered
+          ? pw.Alignment.center
+          : pw.Alignment.centerRight,
+      child: pw.Text(
+        _toArabicDigits(text),
+        textAlign: centered
+            ? pw.TextAlign.center
+            : pw.TextAlign.right,
+        style: pw.TextStyle(
+          fontSize:
+              valueStyle ? 11 : 9.5,
+          fontWeight:
+              bold || valueStyle
+                  ? pw.FontWeight.bold
+                  : pw.FontWeight.normal,
+          color: valueStyle
+              ? _primary
+              : _textPrimary,
+        ),
       ),
     );
   }
 
-  pw.Widget _buildTrendsCard({
+  pw.Widget _buildTrendsChart({
     required String chartTitle,
-    required String? peakSlotHint,
     required List<ReportTrendItem> trendStats,
   }) {
-    final maxCount = trendStats.isEmpty
-        ? 1
-        : trendStats
-            .map((e) => e.count)
-            .reduce((a, b) => a > b ? a : b)
-            .clamp(1, 999);
+    final maxCount =
+        trendStats.isEmpty
+            ? 1
+            : trendStats
+                .map(
+                  (e) => e.count,
+                )
+                .reduce(
+                  (a, b) =>
+                      a > b ? a : b,
+                )
+                .clamp(
+                  1,
+                  999,
+                );
 
-    const double maxBarHeight = 96.0;
+    const double maxBarHeight = 82;
 
     return pw.Container(
-      padding: const pw.EdgeInsets.all(16),
-      decoration: pw.BoxDecoration(
+      width: double.infinity,
+      padding:
+          const pw.EdgeInsets.fromLTRB(
+        12,
+        10,
+        12,
+        10,
+      ),
+      decoration:
+          pw.BoxDecoration(
         color: _cardSurface,
-        borderRadius: pw.BorderRadius.circular(16),
-        border: pw.Border.all(color: _borderLight, width: 1),
+
+        // Simple report-style border around the chart area.
+        border: pw.Border.all(
+          color: _borderBeige,
+          width: 0.8,
+        ),
       ),
       child: pw.Column(
-        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        crossAxisAlignment:
+            pw.CrossAxisAlignment.start,
         children: [
-          pw.Row(
-            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-            children: [
-              pw.Text(
-                chartTitle,
-                style: const pw.TextStyle(
-                  fontSize: 13,
-                  fontWeight: pw.FontWeight.bold,
-                  color: _textPrimary,
+          pw.Text(
+            chartTitle,
+            style:
+                const pw.TextStyle(
+              fontSize: 9.5,
+              color:
+                  _textSecondary,
+            ),
+          ),
+
+          pw.SizedBox(height: 10),
+
+          pw.Container(
+            width: double.infinity,
+            padding:
+                const pw.EdgeInsets.fromLTRB(
+              6,
+              4,
+              6,
+              0,
+            ),
+            decoration:
+                const pw.BoxDecoration(
+              border: pw.Border(
+                left: pw.BorderSide(
+                  color: _borderLight,
+                  width: 0.7,
+                ),
+                right: pw.BorderSide(
+                  color: _borderLight,
+                  width: 0.7,
+                ),
+                bottom: pw.BorderSide(
+                  color: _borderBeige,
+                  width: 0.9,
                 ),
               ),
-              if (peakSlotHint != null && peakSlotHint.isNotEmpty)
-                pw.Text(
-                  peakSlotHint,
-                  style: const pw.TextStyle(
-                    fontSize: 10.5,
-                    color: _textSecondary,
-                  ),
-                ),
-            ],
-          ),
-          pw.SizedBox(height: 16),
-          pw.Row(
-            mainAxisAlignment: pw.MainAxisAlignment.spaceAround,
-            crossAxisAlignment: pw.CrossAxisAlignment.end,
-            children: trendStats.map((stat) {
-              final ratio = stat.count / maxCount;
-              final barHeight = (ratio * maxBarHeight).clamp(4.0, maxBarHeight);
-              final isPeak = stat.count == maxCount && maxCount > 0;
+            ),
+            child: pw.Row(
+              mainAxisAlignment:
+                  pw.MainAxisAlignment
+                      .spaceAround,
+              crossAxisAlignment:
+                  pw.CrossAxisAlignment
+                      .end,
+              children:
+                  trendStats.map(
+                (stat) {
+                  final ratio =
+                      stat.count /
+                          maxCount;
 
-              return pw.Column(
-                mainAxisSize: pw.MainAxisSize.min,
-                children: [
-                  pw.Text(
-                    '${stat.count}',
-                    style: pw.TextStyle(
-                      fontSize: 9.5,
-                      fontWeight: isPeak
-                          ? pw.FontWeight.bold
-                          : pw.FontWeight.normal,
-                      color: isPeak ? _primary : _textSecondary,
-                    ),
-                  ),
-                  pw.SizedBox(height: 4),
-                  pw.Container(
-                    width: 22,
-                    height: maxBarHeight,
-                    alignment: pw.Alignment.bottomCenter,
-                    decoration: pw.BoxDecoration(
-                      color: _bgBeige,
-                      borderRadius: pw.BorderRadius.circular(6),
-                    ),
-                    child: pw.Container(
-                      width: 22,
-                      height: stat.count == 0 ? 3 : barHeight,
-                      decoration: pw.BoxDecoration(
-                        color: isPeak ? _primary : _primaryLight,
-                        borderRadius: pw.BorderRadius.circular(6),
+                  final barHeight =
+                      (ratio *
+                              maxBarHeight)
+                          .clamp(
+                    2.0,
+                    maxBarHeight,
+                  );
+
+                  final isPeak =
+                      stat.count ==
+                              maxCount &&
+                          maxCount > 0;
+
+                  return pw.Column(
+                    mainAxisSize:
+                        pw.MainAxisSize.min,
+                    children: [
+                      pw.Text(
+                        _toArabicDigits(
+                          '${stat.count}',
+                        ),
+                        style:
+                            pw.TextStyle(
+                          fontSize: 8,
+                          fontWeight:
+                              isPeak
+                                  ? pw.FontWeight
+                                      .bold
+                                  : pw.FontWeight
+                                      .normal,
+                          color: isPeak
+                              ? _primary
+                              : _textSecondary,
+                        ),
                       ),
-                    ),
-                  ),
-                  pw.SizedBox(height: 5),
-                  pw.Text(
-                    stat.label,
-                    style: const pw.TextStyle(
-                      fontSize: 10,
-                      color: _textSecondary,
-                    ),
-                  ),
-                ],
-              );
-            }).toList(),
+
+                      pw.SizedBox(
+                        height: 3,
+                      ),
+
+                      pw.Container(
+                        width: 22,
+                        height:
+                            maxBarHeight,
+                        alignment:
+                            pw.Alignment
+                                .bottomCenter,
+                        child:
+                            pw.Container(
+                          width: 16,
+                          height:
+                              stat.count ==
+                                      0
+                                  ? 1
+                                  : barHeight,
+                          color: isPeak
+                              ? _primary
+                              : _primaryLight,
+                        ),
+                      ),
+
+                      pw.SizedBox(
+                        height: 4,
+                      ),
+
+                      pw.Text(
+                        _toArabicDigits(
+                          stat.label,
+                        ),
+                        style:
+                            const pw.TextStyle(
+                          fontSize: 8,
+                          color:
+                              _textSecondary,
+                        ),
+                      ),
+
+                      pw.SizedBox(
+                        height: 4,
+                      ),
+                    ],
+                  );
+                },
+              ).toList(),
+            ),
           ),
         ],
       ),
     );
   }
 
-  pw.Widget _buildCausesCard({
+  pw.Widget _buildCausesTable({
     required List<ReportCauseItem> causeStats,
   }) {
-    final maxPct = causeStats.isEmpty
-        ? 1.0
-        : causeStats
-            .map((e) => e.percentage)
-            .reduce((a, b) => a > b ? a : b);
+    final maxPct =
+        causeStats.isEmpty
+            ? 0
+            : causeStats
+                .map(
+                  (e) => e.percentage,
+                )
+                .reduce(
+                  (a, b) =>
+                      a > b ? a : b,
+                );
 
-    return pw.Container(
-      padding: const pw.EdgeInsets.all(16),
-      decoration: pw.BoxDecoration(
-        color: _cardSurface,
-        borderRadius: pw.BorderRadius.circular(16),
-        border: pw.Border.all(color: _borderLight, width: 1),
+    return pw.Table(
+      border: pw.TableBorder(
+        horizontalInside:
+            const pw.BorderSide(
+          color: _borderLight,
+          width: 0.6,
+        ),
+        bottom:
+            const pw.BorderSide(
+          color: _borderLight,
+          width: 0.6,
+        ),
       ),
-      child: pw.Column(
-        crossAxisAlignment: pw.CrossAxisAlignment.start,
-        children: [
-          pw.Text(
-            'توزيع الأسباب المحتملة',
-            style: const pw.TextStyle(
-              fontSize: 13,
-              fontWeight: pw.FontWeight.bold,
-              color: _textPrimary,
-            ),
+      columnWidths: const {
+        0: pw.FlexColumnWidth(3),
+        1: pw.FlexColumnWidth(1),
+        2: pw.FlexColumnWidth(4),
+      },
+      children: [
+        pw.TableRow(
+          decoration:
+              const pw.BoxDecoration(
+            color: _bgBeige,
           ),
-          pw.SizedBox(height: 12),
-          ...causeStats.map((stat) {
-            final isTop = stat.percentage == maxPct;
-            final pctInt = (stat.percentage * 100).round();
-            final flexFilled = pctInt.clamp(1, 100);
-            final flexEmpty = (100 - flexFilled).clamp(0, 99);
+          children: [
+            _buildTableCell(
+              'السبب المحتمل',
+              bold: true,
+            ),
+            _buildTableCell(
+              'النسبة',
+              bold: true,
+              centered: true,
+            ),
+            _buildTableCell(
+              'التوزيع',
+              bold: true,
+            ),
+          ],
+        ),
+        ...causeStats.map(
+          (stat) {
+            final percentage =
+                (stat.percentage *
+                        100)
+                    .round();
 
-            return pw.Padding(
-              padding: const pw.EdgeInsets.only(bottom: 10),
-              child: pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: [
-                  pw.Row(
-                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                    children: [
-                      pw.Text(
-                        stat.label,
-                        style: pw.TextStyle(
-                          fontSize: 11,
-                          fontWeight: isTop
-                              ? pw.FontWeight.bold
-                              : pw.FontWeight.normal,
-                          color: _textPrimary,
-                        ),
-                      ),
-                      pw.Text(
-                        '$pctInt%',
-                        style: pw.TextStyle(
-                          fontSize: 11,
-                          fontWeight: pw.FontWeight.bold,
-                          color: isTop ? _primary : _textSecondary,
-                        ),
-                      ),
-                    ],
+            final isTop =
+                stat.percentage ==
+                    maxPct;
+
+            return pw.TableRow(
+              children: [
+                _buildTableCell(
+                  stat.label,
+                  bold: isTop,
+                ),
+                _buildTableCell(
+                  '${_toArabicDigits('$percentage')}٪',
+                  centered: true,
+                  bold: isTop,
+                ),
+                pw.Padding(
+                  padding:
+                      const pw.EdgeInsets
+                          .symmetric(
+                    horizontal: 8,
+                    vertical: 9,
                   ),
-                  pw.SizedBox(height: 4),
-                  pw.Container(
-                    height: 7,
-                    decoration: pw.BoxDecoration(
+                  child: pw.Container(
+                    height: 6,
+                    decoration:
+                        pw.BoxDecoration(
                       color: _bgBeige,
-                      borderRadius: pw.BorderRadius.circular(4),
+                      borderRadius:
+                          pw.BorderRadius
+                              .circular(
+                        3,
+                      ),
                     ),
                     child: pw.Row(
                       children: [
                         pw.Expanded(
-                          flex: flexFilled,
-                          child: pw.Container(
-                            decoration: pw.BoxDecoration(
-                              color: isTop ? _primary : _primaryLight,
-                              borderRadius: pw.BorderRadius.circular(4),
-                            ),
+                          flex:
+                              percentage
+                                  .clamp(
+                            1,
+                            100,
+                          ),
+                          child:
+                              pw.Container(
+                            color: isTop
+                                ? _primary
+                                : _primaryLight,
                           ),
                         ),
-                        if (flexEmpty > 0)
+                        if (percentage <
+                            100)
                           pw.Expanded(
-                            flex: flexEmpty,
-                            child: pw.SizedBox(),
+                            flex:
+                                (100 -
+                                        percentage)
+                                    .clamp(
+                              1,
+                              100,
+                            ),
+                            child:
+                                pw.SizedBox(),
                           ),
                       ],
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             );
-          }),
-        ],
+          },
+        ),
+      ],
+    );
+  }
+
+  pw.Widget _buildDisclaimer() {
+    return pw.Container(
+      width: double.infinity,
+      padding:
+          const pw.EdgeInsets.symmetric(
+        horizontal: 10,
+        vertical: 8,
+      ),
+      decoration:
+          const pw.BoxDecoration(
+        color: _bgCream,
+        border: pw.Border(
+          right: pw.BorderSide(
+            color: _success,
+            width: 3,
+          ),
+        ),
+      ),
+      child: pw.Text(
+        'ملاحظة: يعرض هذا التقرير ملخصًا لبيانات المراقبة المسجلة بواسطة مهد. '
+        'تصنيفات أسباب البكاء احتمالية ولا تمثل تشخيصًا طبيًا أو بديلًا عن استشارة المختص.',
+        style:
+            const pw.TextStyle(
+          fontSize: 8.5,
+          height: 1.5,
+          color:
+              _textSecondary,
+        ),
       ),
     );
+  }
+
+  String _formatGeneratedDate(
+    DateTime date,
+  ) {
+    const months = [
+      'يناير',
+      'فبراير',
+      'مارس',
+      'أبريل',
+      'مايو',
+      'يونيو',
+      'يوليو',
+      'أغسطس',
+      'سبتمبر',
+      'أكتوبر',
+      'نوفمبر',
+      'ديسمبر',
+    ];
+
+    final month =
+        months[date.month - 1];
+
+    return '${_toArabicDigits('${date.day}')} '
+        '$month '
+        '${_toArabicDigits('${date.year}')}';
+  }
+
+  String _toArabicDigits(
+    String value,
+  ) {
+    const westernDigits = [
+      '0',
+      '1',
+      '2',
+      '3',
+      '4',
+      '5',
+      '6',
+      '7',
+      '8',
+      '9',
+    ];
+
+    const arabicDigits = [
+      '٠',
+      '١',
+      '٢',
+      '٣',
+      '٤',
+      '٥',
+      '٦',
+      '٧',
+      '٨',
+      '٩',
+    ];
+
+    var result = value;
+
+    for (var i = 0;
+        i < westernDigits.length;
+        i++) {
+      result = result.replaceAll(
+        westernDigits[i],
+        arabicDigits[i],
+      );
+    }
+
+    return result;
   }
 }

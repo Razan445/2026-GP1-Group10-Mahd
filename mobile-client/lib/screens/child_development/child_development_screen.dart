@@ -5,7 +5,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/arabic_number_formatter.dart';
+import '../../core/utils/child_age_formatter.dart';
 import '../../services/firestore_service.dart';
+import '../../services/child_content_repository.dart';
 import '../../widgets/app_snack_bar.dart';
 
 class ChildDevelopmentScreen extends StatefulWidget {
@@ -15,7 +18,8 @@ class ChildDevelopmentScreen extends StatefulWidget {
   State<ChildDevelopmentScreen> createState() => _ChildDevelopmentScreenState();
 }
 
-class _ChildDevelopmentScreenState extends State<ChildDevelopmentScreen> {
+class _ChildDevelopmentScreenState extends State<ChildDevelopmentScreen>
+    with WidgetsBindingObserver {
   final TextEditingController _heightController = TextEditingController();
 
   final TextEditingController _weightController = TextEditingController();
@@ -31,6 +35,20 @@ class _ChildDevelopmentScreenState extends State<ChildDevelopmentScreen> {
   String _childAgeText = 'جاري حساب العمر...';
   bool _isAgeLoading = true;
 
+  // ═════════════════════════════════════════════════════════════
+  // Source-backed, read-only Mahd child content (not Firebase mock data)
+  // ═════════════════════════════════════════════════════════════
+  DateTime? _childDateOfBirth;
+  Timer? _ageUpdateTimer;
+
+  // Independent cycle position per age+category. The card titles never change.
+  final Map<String, int> _growthCardOffsets = {};
+  final Map<String, int> _milestoneCardOffsets = {};
+  final Map<int, int> _activityOffsets = {};
+  ChildContentRepository? _childContentRepository;
+  bool _isContentLoading = true;
+  String? _contentLoadError;
+
   final List<_GrowthRecordData> _growthRecords = [];
 
   StreamSubscription<User?>? _authSubscription;
@@ -44,11 +62,16 @@ class _ChildDevelopmentScreenState extends State<ChildDevelopmentScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _scheduleNextAgeUpdate();
+    _loadVerifiedContent();
     _listenToAuthentication();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _ageUpdateTimer?.cancel();
     _authSubscription?.cancel();
     _accountSubscription?.cancel();
     _growthRecordsSubscription?.cancel();
@@ -58,6 +81,75 @@ class _ChildDevelopmentScreenState extends State<ChildDevelopmentScreen> {
     _headController.dispose();
 
     super.dispose();
+  }
+
+  // The age is recalculated at local midnight and when the app returns from
+  // background, rather than remaining frozen at account registration time.
+  void _scheduleNextAgeUpdate() {
+    _ageUpdateTimer?.cancel();
+    final now = DateTime.now();
+    final nextMidnight = DateTime(now.year, now.month, now.day + 1);
+    _ageUpdateTimer = Timer(nextMidnight.difference(now) +
+        const Duration(seconds: 1), () {
+      _refreshCurrentAge();
+      if (mounted) _scheduleNextAgeUpdate();
+    });
+  }
+
+  void _refreshCurrentAge() {
+    if (!mounted || _childDateOfBirth == null) return;
+    setState(() {
+      _childAgeText = ChildAgeFormatter.format(
+        _childDateOfBirth!,
+        DateTime.now(),
+      );
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _refreshCurrentAge();
+      _scheduleNextAgeUpdate();
+    }
+  }
+
+  // Each click advances by a complete pair (wraps after the last item).
+  void _rotateCategory(Map<String, int> offsets, String key, int total) {
+    if (total <= 2) return;
+    setState(() {
+      offsets[key] = ((offsets[key] ?? 0) + 2) % total;
+    });
+  }
+
+  List<Map<String, dynamic>> _visiblePair(
+    List<Map<String, dynamic>> items,
+    int offset,
+  ) {
+    if (items.length <= 2) return items;
+    return [
+      items[offset % items.length],
+      items[(offset + 1) % items.length],
+    ];
+  }
+
+  Future<void> _loadVerifiedContent() async {
+    try {
+      final repository = await ChildContentRepository.load();
+      if (!mounted) return;
+      setState(() {
+        _childContentRepository = repository;
+        _contentLoadError = null;
+        _isContentLoading = false;
+      });
+    } catch (error) {
+      debugPrint('Mahd child content loading failed: $error');
+      if (!mounted) return;
+      setState(() {
+        _contentLoadError = 'تعذر تحميل المعلومات الموثّقة';
+        _isContentLoading = false;
+      });
+    }
   }
 
   void _listenToAuthentication() {
@@ -73,6 +165,7 @@ class _ChildDevelopmentScreenState extends State<ChildDevelopmentScreen> {
 
           setState(() {
             _childAgeText = 'غير متاح';
+            _childDateOfBirth = null;
             _isAgeLoading = false;
 
             _growthRecords.clear();
@@ -104,8 +197,9 @@ class _ChildDevelopmentScreenState extends State<ChildDevelopmentScreen> {
         String ageText;
 
         if (birthDateValue is Timestamp) {
-          ageText = _calculateAge(
+          ageText = ChildAgeFormatter.format(
             birthDateValue.toDate(),
+            DateTime.now(),
           );
         } else {
           ageText = 'لم يتم تسجيل تاريخ الميلاد';
@@ -117,6 +211,9 @@ class _ChildDevelopmentScreenState extends State<ChildDevelopmentScreen> {
 
         setState(() {
           _childAgeText = ageText;
+          _childDateOfBirth = birthDateValue is Timestamp
+              ? birthDateValue.toDate()
+              : null;
           _isAgeLoading = false;
         });
       },
@@ -131,88 +228,11 @@ class _ChildDevelopmentScreenState extends State<ChildDevelopmentScreen> {
 
         setState(() {
           _childAgeText = 'تعذر تحميل العمر';
+          _childDateOfBirth = null;
           _isAgeLoading = false;
         });
       },
     );
-  }
-
-  String _calculateAge(DateTime birthDate) {
-    final now = DateTime.now();
-
-    final today = DateTime(
-      now.year,
-      now.month,
-      now.day,
-    );
-
-    final birth = DateTime(
-      birthDate.year,
-      birthDate.month,
-      birthDate.day,
-    );
-
-    if (birth.isAfter(today)) {
-      return 'تاريخ الميلاد غير صالح';
-    }
-
-    int years = today.year - birth.year;
-    int months = today.month - birth.month;
-
-    if (today.day < birth.day) {
-      months--;
-    }
-
-    if (months < 0) {
-      years--;
-      months += 12;
-    }
-
-    if (years <= 0) {
-      return _formatMonths(months);
-    }
-
-    if (years == 1) {
-      if (months == 0) {
-        return 'سنة واحدة';
-      }
-
-      return 'سنة و${_formatMonths(months)}';
-    }
-
-    if (years == 2) {
-      if (months == 0) {
-        return 'سنتان';
-      }
-
-      return 'سنتان و${_formatMonths(months)}';
-    }
-
-    if (months == 0) {
-      return '$years سنوات';
-    }
-
-    return '$years سنوات و${_formatMonths(months)}';
-  }
-
-  String _formatMonths(int months) {
-    if (months <= 0) {
-      return 'أقل من شهر';
-    }
-
-    if (months == 1) {
-      return 'شهر واحد';
-    }
-
-    if (months == 2) {
-      return 'شهران';
-    }
-
-    if (months >= 3 && months <= 10) {
-      return '$months أشهر';
-    }
-
-    return '$months شهرًا';
   }
 
   void _listenToGrowthRecords() {
@@ -514,6 +534,212 @@ class _ChildDevelopmentScreenState extends State<ChildDevelopmentScreen> {
     });
   }
 
+  // ═════════════════════════════════════════════════════════════
+  // Parent-facing evidence-backed Growth / Milestones / Activities
+  // ═════════════════════════════════════════════════════════════
+  // SOURCES are retained for verification (not shown in the parent UI) at:
+  // assets/data/mahd_child_content_ar.json > each record's sourceUrl,
+  // sourceSection, sourceItemNumber and sourceEvidenceSummaryEn.
+  // CDC milestones & activities: https://www.cdc.gov/act-early/milestones/index.html
+  // Other sources: American Academy of Pediatrics, NHS, MedlinePlus.
+  // A source's age coverage is stored as sourceAgeCoverageAr; a fact selected
+  // for display does not assert a specific growth rate for this individual.
+  // Safety: activity wording in textAr already incorporates essential safety
+  // instructions where needed. Additional safetyNoteAr is kept in JSON for
+  // source review, and must never be silently deleted from the dataset.
+  // The CDC milestones list is informational, NOT a clinical screening tool.
+
+  List<Widget> _buildEvidenceSections() {
+    final repository = _childContentRepository;
+    if (_isContentLoading || _isAgeLoading) {
+      return const [
+        Center(
+          child: Padding(
+            padding: EdgeInsets.all(18),
+            child: CircularProgressIndicator(),
+          ),
+        ),
+      ];
+    }
+    if (_contentLoadError != null || repository == null) {
+      return [
+        _ContentNotice(
+          text: _contentLoadError ?? 'تعذر تحميل معلومات النمو والتطور',
+        ),
+      ];
+    }
+    if (_childDateOfBirth == null) {
+      return const [
+        _ContentNotice(
+          text: 'سجّلي تاريخ ميلاد الطفل لعرض المعلومات المناسبة لعمره.',
+        ),
+      ];
+    }
+
+    final ageMonths = ChildContentRepository.completedMonths(
+      _childDateOfBirth!,
+      DateTime.now(),
+    );
+    if (ageMonths < 0) {
+      return const [_ContentNotice(text: 'تحققي من تاريخ ميلاد الطفل.')];
+    }
+    if (ageMonths > 60) {
+      return const [
+        _ContentNotice(
+          text: 'المحتوى المتوفر حاليًا مخصص للأطفال حتى عمر خمس سنوات.',
+        ),
+      ];
+    }
+
+    final growthFacts = repository.growthFactsForAge(ageMonths);
+    final milestones = repository.milestonesForAge(ageMonths);
+    // The third verified activity is reserved for the Home preview.
+    final activities = repository.screenActivitiesForAge(ageMonths);
+    final stage = repository.matchingChecklistAge(ageMonths);
+    final ageTitle = ChildAgeFormatter.formatMonthsOnly(ageMonths);
+    final stageTitle = stage == null
+        ? null
+        : ChildAgeFormatter.formatMonthsOnly(stage);
+
+    final result = <Widget>[
+      _ContentSectionTitle(
+        title: 'حقائق عن نمو طفلك',
+        subtitle: 'حقائق عامة عن النمو الجسدي لعمر $ageTitle، '
+            'بناءً على أبحاث وتقارير معتمدة، وليست تقييمًا طبيًا لقياسات الطفل.',
+      ),
+      const SizedBox(height: 12),
+    ];
+
+    if (growthFacts.isEmpty) {
+      result.add(const _ContentNotice(
+        text: 'لا تتوفر حقائق نمو موثقة لهذه المرحلة حاليًا.',
+      ));
+    } else {
+      // Mahd editorial display groups (original categoryAr remains in JSON).
+      // A small stable set of headings avoids 8–10 separate growth cards.
+      final groupedGrowth = <String, List<Map<String, dynamic>>>{};
+      for (final item in growthFacts) {
+        final original = (item['categoryAr'] as String?) ?? '';
+        final group = _displayGrowthCategory(original);
+        groupedGrowth.putIfAbsent(group, () => []).add(item);
+      }
+      const displayOrder = [
+        'الوزن', 'الطول', 'محيط الرأس', 'الأسنان', 'النمو الجسدي',
+      ];
+      for (final heading in displayOrder) {
+        final items = groupedGrowth[heading];
+        if (items == null || items.isEmpty) continue;
+        final entry = MapEntry(heading, items);
+        final key = '$ageMonths:${entry.key}';
+        result.add(_CyclingContentCard(
+          title: entry.key,
+          icon: _growthCategoryIcon(entry.key),
+          entries: _visiblePair(items, _growthCardOffsets[key] ?? 0),
+          canRotate: items.length > 2,
+          onRotate: () => _rotateCategory(_growthCardOffsets, key, items.length),
+        ));
+        result.add(const SizedBox(height: 10));
+      }
+    }
+
+    result.add(const SizedBox(height: 22));
+    result.add(_ContentSectionTitle(
+      title: 'المهارات التطورية',
+      subtitle: stageTitle == null
+          ? 'تبدأ المهارات الموثقة المتوفرة لدينا من عمر شهرين.'
+          : 'مهارات للمتابعة في مرحلة $stageTitle، '
+              'للملاحظة فقط وليست أداة تشخيصية.',
+    ));
+    result.add(const SizedBox(height: 12));
+
+    if (milestones.isEmpty) {
+      result.add(const _ContentNotice(
+        text: 'لا تتوفر مهارات للعرض في هذه المرحلة العمرية.',
+      ));
+    } else {
+      const categories = [
+        'Social/Emotional',
+        'Language/Communication',
+        'Cognitive',
+        'Movement/Physical',
+      ];
+      for (final category in categories) {
+        final items = milestones
+            .where((item) => item['categoryKey'] == category)
+            .toList();
+        if (items.isEmpty) continue;
+        final key = '$stage:$category';
+        result.add(_CyclingContentCard(
+          title: (items.first['categoryAr'] as String?) ?? category,
+          icon: Icons.psychology_alt_outlined,
+          entries: _visiblePair(items, _milestoneCardOffsets[key] ?? 0),
+          canRotate: items.length > 2,
+          onRotate: () => _rotateCategory(_milestoneCardOffsets, key, items.length),
+        ));
+        result.add(const SizedBox(height: 10));
+      }
+    }
+
+    result.add(const SizedBox(height: 22));
+    result.add(Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        const Expanded(
+          child: _ContentSectionTitle(
+            title: 'أنشطة مناسبة لعمر الطفل',
+            subtitle: 'أنشطة ونصائح مناسبة لهذه المرحلة العمرية، '
+                'مأخوذة من أبحاث وتوصيات معتمدة.',
+          ),
+        ),
+        if (activities.length > 2)
+          _RotateContentButton(
+            onPressed: () => setState(() {
+              _activityOffsets[stage!] =
+                  ((_activityOffsets[stage] ?? 0) + 2) % activities.length;
+            }),
+          ),
+      ],
+    ));
+    result.add(const SizedBox(height: 12));
+    if (activities.isEmpty) {
+      result.add(const _ContentNotice(
+        text: 'الأنشطة الموثقة المتوفرة لدينا تبدأ من عمر شهرين.',
+      ));
+    } else {
+      final currentActivities =
+          _visiblePair(activities, _activityOffsets[stage] ?? 0);
+      for (final activity in currentActivities) {
+        result.add(_ActivityContentCard(
+          description: (activity['textAr'] as String?) ?? '',
+        ));
+        result.add(const SizedBox(height: 10));
+      }
+    }
+    return result;
+  }
+
+  // Internal Mahd presentation-only grouping; no fact text is changed.
+  // Combined or broader facts stay under the general growth heading.
+  String _displayGrowthCategory(String original) {
+    switch (original) {
+      case 'الوزن':
+      case 'الطول':
+      case 'محيط الرأس':
+      case 'الأسنان':
+        return original;
+      default:
+        return 'النمو الجسدي';
+    }
+  }
+
+  IconData _growthCategoryIcon(String category) {
+    if (category.contains('وزن')) return Icons.monitor_weight_outlined;
+    if (category.contains('طول')) return Icons.straighten_rounded;
+    if (category.contains('أسنان')) return Icons.sentiment_satisfied_alt_outlined;
+    if (category.contains('رأس')) return Icons.circle_outlined;
+    return Icons.auto_awesome_outlined;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Directionality(
@@ -555,37 +781,7 @@ class _ChildDevelopmentScreenState extends State<ChildDevelopmentScreen> {
                     onAddNew: _addNewMeasurement,
                   ),
                 const SizedBox(height: 22),
-                Text(
-                  'التطور في هذا العمر',
-                  style: AppTextStyles.cardTitle.copyWith(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                const _DevelopmentCard(),
-                const SizedBox(height: 22),
-                Text(
-                  'أنشطة مناسبة لعمر الطفل',
-                  style: AppTextStyles.cardTitle.copyWith(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                const _ActivityCard(
-                  icon: Icons.visibility_outlined,
-                  title: 'تتبّع الأشياء',
-                  description:
-                      'حرّكي لعبة ملونة ببطء أمام الطفل لمساعدته على تتبعها بعينيه.',
-                ),
-                const SizedBox(height: 12),
-                const _ActivityCard(
-                  icon: Icons.record_voice_over_outlined,
-                  title: 'التحدث مع الطفل',
-                  description:
-                      'تحدثي معه بصوت هادئ وكرري الأصوات البسيطة لدعم تفاعله.',
-                ),
+                ..._buildEvidenceSections(),
               ],
             ),
           ),
@@ -826,7 +1022,7 @@ class _MeasurementsFormCard extends StatelessWidget {
           _MeasurementField(
             controller: heightController,
             label: 'الطول',
-            hint: 'مثال: 60',
+            hint: 'مثال: ٦٠',
             unit: 'سم',
             icon: Icons.height_rounded,
           ),
@@ -834,7 +1030,7 @@ class _MeasurementsFormCard extends StatelessWidget {
           _MeasurementField(
             controller: weightController,
             label: 'الوزن',
-            hint: 'مثال: 5.8',
+            hint: 'مثال: ٥.٨',
             unit: 'كجم',
             icon: Icons.monitor_weight_outlined,
           ),
@@ -842,7 +1038,7 @@ class _MeasurementsFormCard extends StatelessWidget {
           _MeasurementField(
             controller: headController,
             label: 'محيط الرأس',
-            hint: 'مثال: 40',
+            hint: 'مثال: ٤٠',
             unit: 'سم',
             icon: Icons.circle_outlined,
           ),
@@ -1007,9 +1203,9 @@ class _GrowthChartsCard extends StatefulWidget {
 
   static String formatMeasurement(double value) {
     if (value == value.roundToDouble()) {
-      return value.toInt().toString();
+      return ArabicNumberFormatter.formatInt(value.toInt());
     }
-    return value.toStringAsFixed(1);
+    return ArabicNumberFormatter.toArabic(value.toStringAsFixed(1));
   }
 
   @override
@@ -1321,8 +1517,8 @@ class _UnifiedGrowthChart extends StatelessWidget {
     }
     final sign = diff > 0 ? '+' : '';
     final formatted = diff == diff.roundToDouble()
-        ? diff.toInt().toString()
-        : diff.toStringAsFixed(1);
+        ? ArabicNumberFormatter.formatInt(diff.toInt())
+        : ArabicNumberFormatter.toArabic(diff.toStringAsFixed(1));
     return '$sign$formatted $unit عن القياس السابق';
   }
 
@@ -1703,7 +1899,9 @@ class _CombinedThreeTrackChartPainter extends CustomPainter {
         axisLinePaint,
       );
 
-      final dateStr = '${dates[i].day}/${dates[i].month}/${dates[i].year}';
+      final dateStr = ArabicNumberFormatter.toArabic(
+        '${dates[i].day}/${dates[i].month}/${dates[i].year}',
+      );
       _drawLtrText(
         canvas,
         text: dateStr,
@@ -2127,7 +2325,9 @@ class _SingleMetricChartPainter extends CustomPainter {
       );
 
       // Date label with Year directly below each point
-      final dateStr = '${dates[i].day}/${dates[i].month}/${dates[i].year}';
+      final dateStr = ArabicNumberFormatter.toArabic(
+        '${dates[i].day}/${dates[i].month}/${dates[i].year}',
+      );
       final dateTp = TextPainter(
         text: TextSpan(
           text: dateStr,
@@ -2269,122 +2469,186 @@ class _GrowthRecordData {
   final DateTime createdAt;
 }
 
-class _DevelopmentCard extends StatelessWidget {
-  const _DevelopmentCard();
+// ═════════════════════════════════════════════════════════════════
+// Evidence-linked educational cards (text comes only from JSON assets)
+// ═════════════════════════════════════════════════════════════════
+
+class _ContentSectionTitle extends StatelessWidget {
+  const _ContentSectionTitle({required this.title, required this.subtitle});
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: AppTextStyles.cardTitle.copyWith(
+            fontSize: 18, fontWeight: FontWeight.w600,
+          )),
+          const SizedBox(height: 5),
+          Text(subtitle, style: AppTextStyles.featureDesc.copyWith(
+            fontSize: 11, height: 1.6, color: AppColors.textSecondary,
+          )),
+        ],
+      );
+}
+
+class _ContentNotice extends StatelessWidget {
+  const _ContentNotice({required this.text});
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppColors.iconBg,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Text(text, style: AppTextStyles.featureDesc.copyWith(
+          fontSize: 11, height: 1.65, color: AppColors.textSecondary,
+        )),
+      );
+}
+
+/// One independently rotating category. Only display the two selected entries.
+class _CyclingContentCard extends StatelessWidget {
+  const _CyclingContentCard({
+    required this.title,
+    required this.icon,
+    required this.entries,
+    required this.canRotate,
+    required this.onRotate,
+  });
+
+  final String title;
+  final IconData icon;
+  final List<Map<String, dynamic>> entries;
+  final bool canRotate;
+  final VoidCallback onRotate;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
         color: AppColors.cardSurface,
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.borderLight),
       ),
-      child: Row(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: AppColors.iconBg,
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: const Icon(
-              Icons.psychology_alt_outlined,
-              color: AppColors.primary,
-              size: 22,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'تتبّع الأشياء بصريًا',
+          Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: AppColors.iconBg,
+                  borderRadius: BorderRadius.circular(11),
+                ),
+                child: Icon(icon, color: AppColors.primary, size: 19),
+              ),
+              const SizedBox(width: 9),
+              Expanded(
+                child: Text(
+                  title,
                   style: AppTextStyles.cardTitle.copyWith(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                const SizedBox(height: 6),
-                Text(
-                  'في هذا العمر يبدأ الطفل بتتبّع الأشياء المتحركة بعينيه والانتباه أكثر للوجوه والأصوات.',
-                  style: AppTextStyles.featureDesc.copyWith(
-                    fontSize: 11,
-                    height: 1.7,
-                    color: AppColors.textSecondary,
+              ),
+              if (canRotate) _RotateContentButton(onPressed: onRotate),
+            ],
+          ),
+          const SizedBox(height: 10),
+          for (int i = 0; i < entries.length; i++) ...[
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.only(top: 8),
+                  child: Icon(Icons.circle, size: 6, color: AppColors.primary),
+                ),
+                const SizedBox(width: 9),
+                Expanded(
+                  child: Text(
+                    (entries[i]['textAr'] as String?) ?? '',
+                    style: AppTextStyles.featureDesc.copyWith(
+                      fontSize: 12,
+                      height: 1.7,
+                      color: AppColors.textPrimary,
+                    ),
                   ),
                 ),
               ],
             ),
-          ),
+            if (i != entries.length - 1) const SizedBox(height: 8),
+          ],
         ],
       ),
     );
   }
 }
 
-class _ActivityCard extends StatelessWidget {
-  const _ActivityCard({
-    required this.icon,
-    required this.title,
-    required this.description,
-  });
+/// Rotation lives beside the relevant title; omitted entirely for <=2 items.
+class _RotateContentButton extends StatelessWidget {
+  const _RotateContentButton({required this.onPressed});
+  final VoidCallback onPressed;
 
-  final IconData icon;
-  final String title;
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      tooltip: 'عرض معلومات أخرى',
+      onPressed: onPressed,
+      visualDensity: VisualDensity.compact,
+      icon: const Icon(Icons.autorenew_rounded, color: AppColors.primary),
+    );
+  }
+}
+
+class _ActivityContentCard extends StatelessWidget {
+  const _ActivityContentCard({required this.description});
   final String description;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
         color: AppColors.cardSurface,
+        border: Border.all(color: AppColors.borderLight),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 42,
-            height: 42,
+            width: 36,
+            height: 36,
             decoration: BoxDecoration(
               color: AppColors.iconBg,
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(
-              icon,
+            child: const Icon(
+              Icons.toys_outlined,
               color: AppColors.primary,
               size: 20,
             ),
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: AppTextStyles.cardTitle.copyWith(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  description,
-                  style: AppTextStyles.featureDesc.copyWith(
-                    fontSize: 10.5,
-                    height: 1.7,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-              ],
+            child: Text(
+              description,
+              style: AppTextStyles.featureDesc.copyWith(
+                fontSize: 12,
+                height: 1.7,
+                color: AppColors.textPrimary,
+              ),
             ),
           ),
         ],

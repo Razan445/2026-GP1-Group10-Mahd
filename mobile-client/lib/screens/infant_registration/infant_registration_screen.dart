@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/routes/app_routes.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/arabic_number_formatter.dart';
 import '../../services/firestore_service.dart';
 import '../../widgets/primary_button.dart';
 import '../../widgets/app_snack_bar.dart';
@@ -193,9 +194,7 @@ class _InfantRegistrationScreenState
 
     final date = _dateOfBirth!;
 
-    return '${date.day.toString().padLeft(2, '0')}/'
-        '${date.month.toString().padLeft(2, '0')}/'
-        '${date.year}';
+    return ArabicNumberFormatter.formatDate(date);
   }
 
   @override

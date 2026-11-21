@@ -4,8 +4,11 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/arabic_number_formatter.dart';
+import '../../core/utils/child_age_formatter.dart';
 import '../../services/audio_monitoring_service.dart';
 import '../../services/firestore_service.dart';
+import '../../services/child_content_repository.dart';
 import '../calendar/calendar_screen.dart';
 import '../child_development/child_development_gate.dart';
 import '../settings/settings_screen.dart';
@@ -56,9 +59,9 @@ class _HomeScreenState extends State<HomeScreen> {
     final ss = seconds.toString().padLeft(2, '0');
     if (hours > 0) {
       final hh = hours.toString().padLeft(2, '0');
-      return '$hh:$mm:$ss';
+      return ArabicNumberFormatter.toArabic('$hh:$mm:$ss');
     }
-    return '$mm:$ss';
+    return ArabicNumberFormatter.toArabic('$mm:$ss');
   }
 
   void _startElapsedTimer() {
@@ -1263,8 +1266,8 @@ class _LatestCryEventCard extends StatelessWidget {
   static const String _timestamp =
       'منذ ١٥ دقيقة';
   static const String _temperature =
-      '24°م';
-  static const String _humidity = '45%';
+      '٢٤°م';
+  static const String _humidity = '٤٥٪';
 
   @override
   Widget build(BuildContext context) {
@@ -1672,87 +1675,62 @@ class _StatTile extends StatelessWidget {
 
 // ── Child development preview ───────────────────────────────────
 
-class _ChildDevelopmentCard extends StatelessWidget {
+class _ChildDevelopmentCard extends StatefulWidget {
   const _ChildDevelopmentCard();
+
+  @override
+  State<_ChildDevelopmentCard> createState() => _ChildDevelopmentCardState();
+}
+
+class _ChildDevelopmentCardState extends State<_ChildDevelopmentCard>
+    with WidgetsBindingObserver {
+  Timer? _ageDayTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _scheduleAgeUpdate();
+  }
+
+  void _scheduleAgeUpdate() {
+    _ageDayTimer?.cancel();
+    final now = DateTime.now();
+    final tomorrow = DateTime(now.year, now.month, now.day + 1);
+    _ageDayTimer = Timer(
+      tomorrow.difference(now) + const Duration(seconds: 1),
+      () {
+        if (!mounted) return;
+        setState(() {}); // Recalculate age and featured activity from DOB.
+        _scheduleAgeUpdate();
+      },
+    );
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      if (mounted) setState(() {});
+      _scheduleAgeUpdate();
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _ageDayTimer?.cancel();
+    super.dispose();
+  }
 
   int? _ageInMonths(DateTime? dateOfBirth) {
     if (dateOfBirth == null) return null;
-
-    final now = DateTime.now();
-    int months =
-        (now.year - dateOfBirth.year) * 12 +
-            (now.month - dateOfBirth.month);
-
-    if (now.day < dateOfBirth.day) {
-      months -= 1;
-    }
-
-    return months < 0 ? 0 : months;
+    final age = ChildAgeFormatter.completedMonths(dateOfBirth, DateTime.now());
+    return age < 0 ? null : age;
   }
 
-  String _formatAge(int? months) {
-    if (months == null) return 'غير محدد بعد';
-    if (months == 0) return 'أقل من شهر';
-    if (months == 1) return 'شهر واحد';
-    if (months == 2) return 'شهران';
-    if (months >= 3 && months <= 10) {
-      return '$months أشهر';
-    }
-    if (months == 11) return '11 شهرًا';
-
-    final years = months ~/ 12;
-    final remainingMonths = months % 12;
-
-    if (remainingMonths == 0) {
-      return years == 1
-          ? 'سنة واحدة'
-          : '$years سنوات';
-    }
-
-    final yearText = years == 1
-        ? 'سنة'
-        : '$years سنوات';
-
-    final monthText = remainingMonths == 1
-        ? 'وشهر'
-        : remainingMonths == 2
-            ? 'وشهران'
-            : 'و$remainingMonths أشهر';
-
-    return '$yearText $monthText';
-  }
-
-  String _mockActivityForAge(int? months) {
-    // TODO: Replace mock age-based activity with research-backed developmental content.
-    if (months == null) {
-      return 'أكملي بيانات طفلك لعرض نشاط مناسب لعمره.';
-    }
-
-    if (months <= 2) {
-      return 'حرّكي لعبة عالية التباين ببطء أمام طفلك وشجعيه على تتبعها بعينيه.';
-    }
-
-    if (months <= 4) {
-      return 'خصصي وقتًا قصيرًا للاستلقاء على البطن مع وضع لعبة أمامه لتشجيعه على رفع رأسه.';
-    }
-
-    if (months <= 6) {
-      return 'ضعي لعبة آمنة قريبة منه وشجعيه على مد يده والإمساك بها.';
-    }
-
-    if (months <= 9) {
-      return 'ضعي لعبة أمامه على مسافة قصيرة وشجعيه على التحرك للوصول إليها.';
-    }
-
-    if (months <= 12) {
-      return 'شجعيه على نقل لعبة بين يديه ووضعها داخل وعاء ثم إخراجها.';
-    }
-
-    if (months <= 18) {
-      return 'سمّي الأشياء اليومية أمامه واطلبي منه الإشارة إلى الشيء الذي تسمّينه.';
-    }
-
-    return 'شاركيه نشاطًا بسيطًا مناسبًا لعمره مثل المطابقة أو تسمية الصور والأشياء اليومية.';
+  String _formatAge(DateTime? dateOfBirth) {
+    if (dateOfBirth == null) return 'غير محدد بعد';
+    return ChildAgeFormatter.format(dateOfBirth, DateTime.now());
   }
 
   @override
@@ -1782,12 +1760,7 @@ class _ChildDevelopmentCard extends StatelessWidget {
             _ageInMonths(dateOfBirth);
 
         final ageText =
-            _formatAge(ageMonths);
-
-        final activity =
-            _mockActivityForAge(
-          ageMonths,
-        );
+            _formatAge(dateOfBirth);
 
         return InkWell(
           borderRadius:
@@ -1995,23 +1968,51 @@ class _ChildDevelopmentCard extends StatelessWidget {
                         height: 7,
                       ),
 
-                      Text(
-                        activity,
-                        style:
-                            AppTextStyles
-                                .featureDesc
-                                .copyWith(
-                          fontSize: 11.5,
-                          height: 1.65,
-                          color: AppColors
-                              .textSecondary,
-                        ),
-                      ),
+                      _FeaturedActivityText(ageMonths: ageMonths),
                     ],
                   ),
                 ),
               ],
             ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+// The Home activity is always item #3 of the selected verified age list.
+// The Child Development page omits that same ID from its rotating cards.
+// Source and safety metadata remain in assets/data/mahd_child_content_ar.json.
+class _FeaturedActivityText extends StatelessWidget {
+  const _FeaturedActivityText({required this.ageMonths});
+  final int? ageMonths;
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<ChildContentRepository>(
+      // The repository caches the Future so monitoring updates do not reload JSON.
+      future: ChildContentRepository.load(),
+      builder: (context, snapshot) {
+        String text;
+        if (ageMonths == null) {
+          text = 'أكملي بيانات طفلك لعرض نشاط مناسب لعمره.';
+        } else if (snapshot.hasError) {
+          text = 'تعذر تحميل الأنشطة المناسبة حاليًا.';
+        } else if (!snapshot.hasData) {
+          text = 'جاري تحميل النشاط المناسب...';
+        } else {
+          final activity = snapshot.data!.featuredActivityForAge(ageMonths!);
+          text = activity == null
+              ? 'تتوفر أنشطة موثقة لهذه الميزة ابتداءً من عمر شهرين وحتى خمس سنوات.'
+              : (activity['textAr'] as String?) ?? '';
+        }
+        return Text(
+          text,
+          style: AppTextStyles.featureDesc.copyWith(
+            fontSize: 11.5,
+            height: 1.65,
+            color: AppColors.textSecondary,
           ),
         );
       },

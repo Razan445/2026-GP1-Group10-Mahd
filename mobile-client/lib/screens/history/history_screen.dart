@@ -1,6 +1,7 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/arabic_number_formatter.dart';
 import '../../services/pdf_export_service.dart';
 import '../../widgets/app_snack_bar.dart';
 import '../../widgets/primary_button.dart';
@@ -61,8 +62,8 @@ final List<HistoryEvent> _mockEvents = [
     title: 'بكاء - الجوع',
     description: 'نمط بكاء منتظم يشير إلى الجوع',
     timestamp: DateTime(2025, 3, 12, 10, 42),
-    temperature: '24°م',
-    humidity: '45%',
+    temperature: '٢٤°م',
+    humidity: '٤٥٪',
     confidence: '٨٦٪',
   ),
   HistoryEvent(
@@ -70,8 +71,8 @@ final List<HistoryEvent> _mockEvents = [
     title: 'بكاء - غير محدد',
     description: 'صوت غير محدد الفئة',
     timestamp: DateTime(2025, 3, 12, 8, 15),
-    temperature: '23°م',
-    humidity: '48%',
+    temperature: '٢٣°م',
+    humidity: '٤٨٪',
     confidence: 'أقل من ٣٥٪',
   ),
   // ─── Yesterday ───────────────────────────────────────────────
@@ -80,8 +81,8 @@ final List<HistoryEvent> _mockEvents = [
     title: 'بكاء - ألم بطن أو غازات',
     description: 'نمط بكاء يرتبط بآلام البطن',
     timestamp: DateTime(2025, 3, 11, 23, 0),
-    temperature: '25°م',
-    humidity: '42%',
+    temperature: '٢٥°م',
+    humidity: '٤٢٪',
     confidence: '٢٧٪',
   ),
   HistoryEvent(
@@ -89,8 +90,8 @@ final List<HistoryEvent> _mockEvents = [
     title: 'بكاء - تعب ونعاس',
     description: 'نمط بكاء يدل على التعب والنعاس',
     timestamp: DateTime(2025, 3, 11, 21, 5),
-    temperature: '23°م',
-    humidity: '50%',
+    temperature: '٢٣°م',
+    humidity: '٥٠٪',
     confidence: '٣٨٪',
   ),
   // ─── Two days ago ────────────────────────────────────────────
@@ -99,8 +100,8 @@ final List<HistoryEvent> _mockEvents = [
     title: 'بكاء - الجوع',
     description: 'نمط بكاء منتظم يشير إلى الجوع',
     timestamp: DateTime(2025, 3, 10, 14, 30),
-    temperature: '24°م',
-    humidity: '46%',
+    temperature: '٢٤°م',
+    humidity: '٤٦٪',
     confidence: '٩١٪',
   ),
 ];
@@ -281,7 +282,9 @@ class _ExportReportSheetState extends State<_ExportReportSheet> {
     }
   }
 
-  String _formatDate(DateTime d) => '${d.day}/${d.month}/${d.year}';
+  String _formatDate(DateTime d) => ArabicNumberFormatter.toArabic(
+        '${d.day}/${d.month}/${d.year}',
+      );
 
   String get _dateRangeLabel {
     switch (_selectedPeriod) {
@@ -888,7 +891,7 @@ class _CryingBarChartCard extends StatelessWidget {
                     getTooltipColor: (_) => AppColors.darkSurface,
                     getTooltipItem: (group, groupIndex, rod, rodIndex) {
                       return BarTooltipItem(
-                        '${rod.toY.toInt()}',
+                        ArabicNumberFormatter.formatInt(rod.toY.toInt()),
                         AppTextStyles.helperText.copyWith(
                           color: Colors.white,
                           fontWeight: FontWeight.w600,
@@ -940,7 +943,7 @@ class _CryingBarChartCard extends StatelessWidget {
                             value == maxY / 2 ||
                             value == maxY) {
                           return Text(
-                            '${value.toInt()}',
+                            ArabicNumberFormatter.formatInt(value.toInt()),
                             style: AppTextStyles.helperText.copyWith(
                               fontSize: 11,
                               color: AppColors.textSecondary,
@@ -1076,7 +1079,9 @@ class _CauseRow extends StatelessWidget {
                 ),
               ),
               Text(
-                '${(stat.percentage * 100).toInt()}%',
+                ArabicNumberFormatter.toArabicPercentage(
+                  '${(stat.percentage * 100).toInt()}%',
+                ),
                 style: AppTextStyles.helperText.copyWith(
                   fontSize: 12.5,
                   color: isTop ? AppColors.primary : AppColors.textSecondary,
@@ -1133,15 +1138,31 @@ class _HistoryList extends StatelessWidget {
     final Map<String, List<HistoryEvent>> groups = {};
 
     for (final e in events) {
-      final d = DateTime(e.timestamp.year, e.timestamp.month, e.timestamp.day);
-      String key;
-      if (d == today) {
-        key = 'اليوم · ${_weekday(d.weekday)} ${d.day} ${_month(d.month)}';
-      } else if (d == yesterday) {
-        key = 'أمس · ${_weekday(d.weekday)} ${d.day} ${_month(d.month)}';
-      } else {
-        key = '${_weekday(d.weekday)} ${d.day} ${_month(d.month)}';
-      }
+    final d = DateTime(
+      e.timestamp.year,
+      e.timestamp.month,
+      e.timestamp.day,
+    );
+
+    final day =
+        ArabicNumberFormatter.formatInt(d.day);
+
+    final year =
+        ArabicNumberFormatter.formatInt(d.year);
+
+    final fullDate =
+        '${_weekday(d.weekday)} $day ${_month(d.month)} $year';
+
+    String key;
+
+    if (d == today) {
+      key = 'اليوم · $fullDate';
+    } else if (d == yesterday) {
+      key = 'أمس · $fullDate';
+    } else {
+      key = fullDate;
+    }
+
       groups.putIfAbsent(key, () => []).add(e);
     }
     return groups;
@@ -1377,7 +1398,7 @@ class _EventCard extends StatelessWidget {
             : dt.hour;
     final period = dt.hour >= 12 ? 'م' : 'ص';
     final m = dt.minute.toString().padLeft(2, '0');
-    return '$h:$m $period';
+    return ArabicNumberFormatter.toArabic('$h:$m $period');
   }
 }
 

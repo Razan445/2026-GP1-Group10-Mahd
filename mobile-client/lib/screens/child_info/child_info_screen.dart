@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/arabic_number_formatter.dart';
 import '../../services/firestore_service.dart';
 import '../../widgets/app_snack_bar.dart';
 import '../../widgets/primary_button.dart';
@@ -112,9 +113,7 @@ class _ChildInfoScreenState extends State<ChildInfoScreen> {
 
     if (date == null) return 'اختر تاريخ الميلاد';
 
-    return '${date.day.toString().padLeft(2, '0')}/'
-        '${date.month.toString().padLeft(2, '0')}/'
-        '${date.year}';
+    return ArabicNumberFormatter.formatDate(date);
   }
 
   void _showMessage(String message, AppSnackBarType type) {

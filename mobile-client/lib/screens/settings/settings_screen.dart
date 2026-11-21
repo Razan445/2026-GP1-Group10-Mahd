@@ -452,7 +452,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   _SettingsRow(
                     icon: Icons.info_outline_rounded,
                     title: 'عن مَهد',
-                    trailingText: 'الإصدار 1.0',
+                    trailingText: 'الإصدار ١.٠',
                     onTap: () {},
                   ),
                 ],
