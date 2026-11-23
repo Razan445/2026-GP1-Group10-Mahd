@@ -27,7 +27,7 @@ class LocalSettingsService {
     return await _preferences.getBool(
           _cryAlertsKey,
         ) ??
-        true;
+        false;
   }
 
   // Compatibility with any existing code that reads the old environment

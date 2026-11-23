@@ -1,3 +1,4 @@
+
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -14,9 +15,13 @@ import 'screens/onboarding/onboarding_screen.dart';
 import 'screens/sign_up/sign_up_screen.dart';
 import 'screens/splash/splash_screen.dart';
 import 'services/mahd_notification_service.dart';
+import 'services/monitoring_foreground_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize microphone foreground service support on Android.
+  MonitoringForegroundService.instance.initialize();
 
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,

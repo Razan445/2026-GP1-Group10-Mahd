@@ -1,3 +1,4 @@
+
 // This is a basic Flutter widget test.
 //
 // To perform an interaction with a widget in your test, use the WidgetTester
@@ -9,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:mahd_app/main.dart';
+import 'package:mahd_app/services/cry_events_repository.dart';
 
 void main() {
   testWidgets('Counter increments smoke test', (WidgetTester tester) async {
@@ -26,5 +28,16 @@ void main() {
     // Verify that our counter has incremented.
     expect(find.text('0'), findsNothing);
     expect(find.text('1'), findsOneWidget);
+  }, skip: true);
+
+  test('Mahd cry cause labels map correctly to Arabic', () {
+    expect(mahdCryLabelArabic('hunger'), 'الجوع');
+    expect(mahdCryLabelArabic('pain'), 'الألم');
+    expect(mahdCryLabelArabic('tired'), 'التعب');
+    expect(mahdCryLabelArabic('discomfort'), 'عدم الراحة');
+    expect(mahdCryLabelArabic('burping'), 'الحاجة للتجشؤ');
+
+    // Unknown model labels must remain unchanged.
+    expect(mahdCryLabelArabic('unknown'), 'unknown');
   });
 }

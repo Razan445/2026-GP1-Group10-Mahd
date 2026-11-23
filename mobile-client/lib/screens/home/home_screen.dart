@@ -130,10 +130,8 @@ class _HomeScreenState extends State<HomeScreen> {
     });
 
     try {
-      // Android/iOS: ask about external alert delivery when monitoring starts.
-      // Denying notifications does not prevent local audio monitoring.
-      await MahdNotificationService.instance.requestNotificationPermission();
-
+      // Notification permission is requested when alerts are enabled
+      // in Settings. Starting monitoring requires microphone access.
       // Start the real microphone stream first.
       // A Firestore session is created only if microphone startup succeeds.
       await AudioMonitoringService.instance.startMonitoring();

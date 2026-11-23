@@ -20,7 +20,7 @@ class NotificationsScreen extends StatefulWidget {
 
 class _NotificationsScreenState
     extends State<NotificationsScreen> {
-  bool _cryAlerts = true;
+  bool _cryAlerts = false;
   bool _reminderAlerts = false;
   bool _reminderChangeInProgress = false;
   bool _connectionAlerts = true;

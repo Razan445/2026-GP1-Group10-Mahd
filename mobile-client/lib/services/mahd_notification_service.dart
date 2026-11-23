@@ -133,15 +133,31 @@ class MahdNotificationService with WidgetsBindingObserver {
   }
 
   MahdNotificationDestination? _destinationForPayload(String? payload) {
-    if (payload == null) return null;
-    if (payload.startsWith('cry|')) {
-      return MahdNotificationDestination(1, eventId: payload.substring(4));
-    }
-    if (payload.startsWith('reminder|')) {
-      return MahdNotificationDestination(2, eventId: payload.substring(9));
-    }
-    return null;
+  if (payload == null) return null;
+
+  if (payload.startsWith('classifier_test|')) {
+    return MahdNotificationDestination(
+      1,
+      eventId: payload.substring('classifier_test|'.length),
+    );
   }
+
+  if (payload.startsWith('cry|')) {
+    return MahdNotificationDestination(
+      1,
+      eventId: payload.substring(4),
+    );
+  }
+
+  if (payload.startsWith('reminder|')) {
+    return MahdNotificationDestination(
+      2,
+      eventId: payload.substring(9),
+    );
+  }
+
+  return null;
+}
 
   Future<bool> requestNotificationPermission() async {
     if (!_supportedDevice) return false;
@@ -401,6 +417,105 @@ class MahdNotificationService with WidgetsBindingObserver {
     }
   }
 
+  /// Debug-only notification test using actual ONNX classifier output.
+  /// It is not a confirmed cry event because Cry Detection is not connected.
+  ///
+  /// The test notification and unread bell entry use the existing Mahd
+  /// notification coordinator and respect the caregiver's cry-alert toggle.
+  Future<void> showClassifierDebugTestLocal({
+    required String cause,
+    required double confidence,
+  }) async {
+    if (!kDebugMode || !_nativeReady) return;
+
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+
+    if (uid == null) return;
+
+    final enabled =
+        await LocalSettingsService.instance.getCryAlertsEnabled();
+
+    if (!enabled) {
+      debugPrint(
+        'MAHD DEBUG: Classification received, cry notifications disabled.',
+      );
+      return;
+    }
+
+    final eventId =
+        'classifier_test_${DateTime.now().microsecondsSinceEpoch}';
+
+    final String arabicCause;
+
+    switch (cause.trim().toLowerCase()) {
+      case 'hunger':
+        arabicCause = 'الجوع';
+        break;
+      case 'pain':
+        arabicCause = 'الألم';
+        break;
+      case 'tired':
+        arabicCause = 'التعب';
+        break;
+      case 'discomfort':
+        arabicCause = 'عدم الراحة';
+        break;
+      case 'burping':
+        arabicCause = 'الحاجة للتجشؤ';
+        break;
+      default:
+        arabicCause = cause;
+    }
+
+    final percentage = (confidence * 100).toStringAsFixed(1);
+
+    final body =
+        'السبب المحتمل: $arabicCause ($percentage٪) — '
+        'اختبار تصنيف، لم يتم تأكيد البكاء';
+
+    // Use the already initialized FlutterLocalNotificationsPlugin.
+    // No separate plugin or extra permission request is needed.
+    await _plugin.show(
+      _notificationId('classifier:$uid:$eventId'),
+      'مهد — اختبار تصنيف الصوت',
+      body,
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          _cryChannelId,
+          'تنبيهات البكاء',
+          channelDescription: 'تنبيهات بكاء الطفل المكتشف فعليًا',
+          importance: Importance.high,
+          priority: Priority.high,
+        ),
+        iOS: DarwinNotificationDetails(),
+      ),
+      payload: 'classifier_test|$eventId',
+    );
+
+    // Keep test notifications separate from confirmed cryData records.
+    // This creates the in-app unread bell without inflating cry statistics.
+    try {
+      await _inbox(uid).doc(eventId).set({
+        'eventId': eventId,
+        'type': 'classifier_test',
+        'isClassifierTest': true,
+        'cause': cause,
+        'confidence': confidence,
+        'detectedAt': Timestamp.fromDate(DateTime.now()),
+        'isRead': false,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    } catch (error) {
+      debugPrint(
+        'MAHD DEBUG: Failed to save test notification inbox entry: $error',
+      );
+    }
+
+    debugPrint(
+      'MAHD DEBUG: Classifier test notification sent.',
+    );
+  }
+
   /// Show a system alert immediately after a *real* inference result, without
   /// waiting for Firestore networking. This is why GP1 does not need FCM.
   Future<void> showRealCryLocal({required String eventId}) async {
@@ -457,18 +572,33 @@ class MahdNotificationService with WidgetsBindingObserver {
   /// The Home bell has only a red dot and a short dialog, not an inbox screen.
   /// Cry alerts open history; when there are only calendar alerts, open calendar.
   Future<int?> markUnreadAndGetTargetTab() async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return null;
-    final unread = await _inbox(uid)
-        .where('isRead', isEqualTo: false)
-        .get();
-    if (unread.docs.isEmpty) return null;
-    final hasCry = unread.docs.any((doc) => doc.data()['type'] == 'cry');
-    final batch = FirebaseFirestore.instance.batch();
-    for (final doc in unread.docs) {
-      batch.update(doc.reference, {'isRead': true});
-    }
-    await batch.commit();
-    return hasCry ? 1 : 2;
+  final uid = FirebaseAuth.instance.currentUser?.uid;
+  if (uid == null) return null;
+
+  final unread = await _inbox(uid)
+      .where('isRead', isEqualTo: false)
+      .get();
+
+  if (unread.docs.isEmpty) return null;
+
+  final hasCry = unread.docs.any(
+    (doc) =>
+        doc.data()['type'] == 'cry' ||
+        doc.data()['type'] == 'classifier_test',
+  );
+
+  final batch = FirebaseFirestore.instance.batch();
+
+  for (final doc in unread.docs) {
+    batch.update(doc.reference, {'isRead': true});
   }
+
+  await batch.commit();
+
+  final hasReminder = unread.docs.any(
+    (doc) => doc.data()['type'] == 'reminder',
+  );
+
+  return hasCry ? 1 : (hasReminder ? 2 : 0);
+}
 }
