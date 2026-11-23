@@ -1,0 +1,17 @@
+{
+  "model": "ntu-spml/distilhubert",
+  "pipeline": "pipeline1",
+  "source_fold": 1,
+  "sample_rate": 16000,
+  "window_samples": 32000,
+  "input_name": "audio",
+  "output_name": "probs",
+  "labels": [
+    "Burping",
+    "Discomfort",
+    "Hunger",
+    "Pain",
+    "Tired"
+  ],
+  "note": "Input expects peak-normalized float32 mono PCM in [-1, 1] of length 32000. Zero-mean/unit-var normalization and Softmax are built inside the ONNX graph."
+}

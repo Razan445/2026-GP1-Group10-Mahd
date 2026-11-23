@@ -1,11 +1,14 @@
+
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+
 import '../../core/routes/app_routes.dart';
 import '../../core/theme/app_theme.dart';
 
 /// Screen 01 — شاشة البداية (Splash)
 ///
-/// Shown briefly at app launch. After 2.5 s it auto-navigates
-/// to the Onboarding/Welcome screen.
+/// Shown briefly at app launch. After 2.5 s it checks the
+/// Firebase authentication state and navigates accordingly.
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
@@ -36,12 +39,42 @@ class _SplashScreenState extends State<SplashScreen>
 
     _controller.forward();
 
-    // Navigate to onboarding after 2.5 s
-    Future.delayed(const Duration(milliseconds: 2500), () {
-      if (mounted) {
-        Navigator.pushReplacementNamed(context, AppRoutes.onboarding);
-      }
-    });
+    // Wait for the restored Firebase session before choosing a route.
+    _navigateAfterSplash();
+  }
+
+  Future<void> _navigateAfterSplash() async {
+    // Listen immediately so Firebase can restore the saved session.
+    final sessionFuture =
+        FirebaseAuth.instance.authStateChanges().first;
+
+    // Keep the existing Splash screen visible for 2.5 seconds.
+    await Future<void>.delayed(
+      const Duration(milliseconds: 2500),
+    );
+
+    User? user;
+
+    try {
+      user = await sessionFuture;
+    } catch (error) {
+      debugPrint(
+        'Firebase authentication restoration error: $error',
+      );
+      user = FirebaseAuth.instance.currentUser;
+    }
+
+    if (!mounted) return;
+
+    // A signed-in user goes directly to Home.
+    // Otherwise, show the welcome/onboarding screen.
+    Navigator.pushNamedAndRemoveUntil(
+      context,
+      user == null
+          ? AppRoutes.onboarding
+          : AppRoutes.home,
+      (route) => false,
+    );
   }
 
   @override
@@ -61,7 +94,10 @@ class _SplashScreenState extends State<SplashScreen>
           gradient: RadialGradient(
             center: Alignment(0, -0.55),
             radius: 1.1,
-            colors: [AppColors.gradientStart, AppColors.backgroundCream],
+            colors: [
+              AppColors.gradientStart,
+              AppColors.backgroundCream,
+            ],
             stops: [0.0, 0.65],
           ),
         ),
@@ -82,7 +118,7 @@ class _SplashScreenState extends State<SplashScreen>
 
                   const SizedBox(height: 26),
 
-                  // ── Tagline ───────────────────────────────────────
+                  // ── Tagline ──────────────────────────────────────
                   Text(
                     'مهد يسمع… لتطمئنّي',
                     style: AppTextStyles.splashTagline,
@@ -97,7 +133,7 @@ class _SplashScreenState extends State<SplashScreen>
 
                   const SizedBox(height: 56),
 
-                  // ── Page indicator dots ──────────────────────────
+                  // ── Page indicator dots ─────────────────────────
                   const Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -122,7 +158,11 @@ class _SplashScreenState extends State<SplashScreen>
 }
 
 class _Dot extends StatelessWidget {
-  const _Dot({this.width = 8, required this.color});
+  const _Dot({
+    this.width = 8,
+    required this.color,
+  });
+
   final double width;
   final Color color;
 

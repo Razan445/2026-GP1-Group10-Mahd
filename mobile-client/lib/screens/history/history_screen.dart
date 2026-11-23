@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/arabic_number_formatter.dart';
 import '../../services/pdf_export_service.dart';
+import '../../services/cry_events_repository.dart';
 import '../../widgets/app_snack_bar.dart';
 import '../../widgets/primary_button.dart';
 
@@ -20,8 +21,8 @@ class HistoryEvent {
     required this.title,
     required this.description,
     required this.timestamp,
-    required this.temperature,
-    required this.humidity,
+    this.temperature,
+    this.humidity,
     this.confidence,
   });
 
@@ -31,10 +32,10 @@ class HistoryEvent {
   final DateTime timestamp;
 
   /// Room temperature recorded at the moment of the cry event (e.g. "24°م")
-  final String temperature;
+  final String? temperature;
 
   /// Room humidity recorded at the moment of the cry event (e.g. "45%")
-  final String humidity;
+  final String? humidity;
 
   /// Optional confidence percentage label (e.g. "٨٦٪")
   final String? confidence;
@@ -55,56 +56,8 @@ class _CauseStat {
 // ──────────────────────────────────────────────
 //  Mock data  🔧  Replace with real API data
 // ──────────────────────────────────────────────
-final List<HistoryEvent> _mockEvents = [
-  // ─── Today ───────────────────────────────────────────────────
-  HistoryEvent(
-    type: HistoryEventType.cry,
-    title: 'بكاء - الجوع',
-    description: 'نمط بكاء منتظم يشير إلى الجوع',
-    timestamp: DateTime(2025, 3, 12, 10, 42),
-    temperature: '٢٤°م',
-    humidity: '٤٥٪',
-    confidence: '٨٦٪',
-  ),
-  HistoryEvent(
-    type: HistoryEventType.unclassified,
-    title: 'بكاء - غير محدد',
-    description: 'صوت غير محدد الفئة',
-    timestamp: DateTime(2025, 3, 12, 8, 15),
-    temperature: '٢٣°م',
-    humidity: '٤٨٪',
-    confidence: 'أقل من ٣٥٪',
-  ),
-  // ─── Yesterday ───────────────────────────────────────────────
-  HistoryEvent(
-    type: HistoryEventType.cry,
-    title: 'بكاء - ألم بطن أو غازات',
-    description: 'نمط بكاء يرتبط بآلام البطن',
-    timestamp: DateTime(2025, 3, 11, 23, 0),
-    temperature: '٢٥°م',
-    humidity: '٤٢٪',
-    confidence: '٢٧٪',
-  ),
-  HistoryEvent(
-    type: HistoryEventType.cry,
-    title: 'بكاء - تعب ونعاس',
-    description: 'نمط بكاء يدل على التعب والنعاس',
-    timestamp: DateTime(2025, 3, 11, 21, 5),
-    temperature: '٢٣°م',
-    humidity: '٥٠٪',
-    confidence: '٣٨٪',
-  ),
-  // ─── Two days ago ────────────────────────────────────────────
-  HistoryEvent(
-    type: HistoryEventType.cry,
-    title: 'بكاء - الجوع',
-    description: 'نمط بكاء منتظم يشير إلى الجوع',
-    timestamp: DateTime(2025, 3, 10, 14, 30),
-    temperature: '٢٤°م',
-    humidity: '٤٦٪',
-    confidence: '٩١٪',
-  ),
-];
+// Production list events are read from Firestore; no simulated cry, sensor,
+// classification or confidence data may appear in the monitoring history.
 
 const _dailyStats = [
   _DayStat(dayLabel: '١٢ص', count: 1),
@@ -155,10 +108,31 @@ const _causeStats = [
 // ──────────────────────────────────────────────
 //  Screen
 // ──────────────────────────────────────────────
-class HistoryScreen extends StatelessWidget {
+class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
 
+  @override
+  State<HistoryScreen> createState() => _HistoryScreenState();
+}
+
+class _HistoryScreenState extends State<HistoryScreen> {
+  late final Stream<List<MahdCryEvent>> _eventsStream;
+
+  @override
+  void initState() {
+    super.initState();
+    _eventsStream = CryEventsRepository.instance.watchEvents();
+  }
+
+  static String _confidenceLabel(double value) {
+    if (!value.isFinite || value < 0 || value > 1) return '—';
+    final percentage = value * 100;
+    return '${ArabicNumberFormatter.toArabic(percentage.toStringAsFixed(1))}٪';
+  }
+
   Future<void> _openExportSheet(BuildContext context) async {
+    // PDF report aggregation is still based on demo chart values; it will be
+    // connected to Firestore separately, before any production claim.
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -169,22 +143,46 @@ class HistoryScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final events = _mockEvents;
-
     return SafeArea(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // ── Header with top-left Export button ─────────────────
-          _HistoryHeader(
-            onExportTap: () => _openExportSheet(context),
-          ),
+          _HistoryHeader(onExportTap: () => _openExportSheet(context)),
 
-          // ── List or empty state ─────────────────────────────────
+          // ── Live cry events from the existing nested Firestore sessions ───
           Expanded(
-            child: events.isEmpty
-                ? const _EmptyState()
-                : _HistoryList(events: events),
+            child: StreamBuilder<List<MahdCryEvent>>(
+              stream: _eventsStream,
+              builder: (context, snapshot) {
+                if (!snapshot.hasData && !snapshot.hasError) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (snapshot.hasError) {
+                  return Center(child: Text('تعذر تحميل سجل المراقبة'));
+                }
+                final events = (snapshot.data ?? const <MahdCryEvent>[])
+                    .map((item) => HistoryEvent(
+                          type: HistoryEventType.cry,
+                          title: 'بكاء - ${mahdCryLabelArabic(item.cause)}',
+                          description: '',
+                          timestamp: item.detectedAt,
+                          confidence: item.confidence == null
+                              ? null
+                              : _confidenceLabel(item.confidence!),
+                          temperature: item.temperature == null
+                              ? null
+                              : '${ArabicNumberFormatter.toArabic(item.temperature.toString())}°م',
+                          humidity: item.humidity == null
+                              ? null
+                              : '${ArabicNumberFormatter.toArabic(item.humidity.toString())}٪',
+                        ))
+                    .toList(growable: false);
+                return events.isEmpty
+                    ? const _EmptyState()
+                    : _HistoryList(events: events);
+              },
+            ),
           ),
         ],
       ),
@@ -192,9 +190,9 @@ class HistoryScreen extends StatelessWidget {
   }
 }
 
-// ──────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────
 //  Header
-// ──────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────
 class _HistoryHeader extends StatelessWidget {
   const _HistoryHeader({required this.onExportTap});
 
@@ -1309,82 +1307,71 @@ class _EventCard extends StatelessWidget {
             ],
           ),
 
-          const SizedBox(height: 10),
+          if (event.temperature != null || event.humidity != null)
+            const SizedBox(height: 10),
 
           // ── Room Temperature & Humidity at the time of crying ──
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-            decoration: BoxDecoration(
-              color: AppColors.backgroundCream,
-              borderRadius: BorderRadius.circular(12),
+          // GP1: no sensor = no invented row. GP2: display each real reading.
+          if (event.temperature != null || event.humidity != null) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+              decoration: BoxDecoration(
+                color: AppColors.backgroundCream,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  if (event.temperature != null)
+                    Expanded(
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.thermostat_rounded,
+                              size: 15, color: AppColors.primary),
+                          const SizedBox(width: 5),
+                          Text('درجة الحرارة: ',
+                              style: AppTextStyles.featureDesc.copyWith(
+                                fontSize: 11,
+                                color: AppColors.textSecondary,
+                              )),
+                          Text(event.temperature!,
+                              style: AppTextStyles.cardTitle.copyWith(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w600,
+                              )),
+                        ],
+                      ),
+                    ),
+                  if (event.temperature != null && event.humidity != null) ...[
+                    const SizedBox(width: 12),
+                    Container(width: 1, height: 14, color: AppColors.borderBeige),
+                    const SizedBox(width: 12),
+                  ],
+                  if (event.humidity != null)
+                    Expanded(
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.water_drop_outlined,
+                              size: 15, color: AppColors.success),
+                          const SizedBox(width: 5),
+                          Text('الرطوبة: ',
+                              style: AppTextStyles.featureDesc.copyWith(
+                                fontSize: 11,
+                                color: AppColors.textSecondary,
+                              )),
+                          Text(event.humidity!,
+                              style: AppTextStyles.cardTitle.copyWith(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w600,
+                              )),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
             ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.thermostat_rounded,
-                        size: 15,
-                        color: AppColors.primary,
-                      ),
-                      const SizedBox(width: 5),
-                      Text(
-                        'درجة الحرارة: ',
-                        style: AppTextStyles.featureDesc.copyWith(
-                          fontSize: 11,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                      Text(
-                        event.temperature,
-                        style: AppTextStyles.cardTitle.copyWith(
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  width: 1,
-                  height: 14,
-                  color: AppColors.borderBeige,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.water_drop_outlined,
-                        size: 15,
-                        color: AppColors.success,
-                      ),
-                      const SizedBox(width: 5),
-                      Text(
-                        'الرطوبة: ',
-                        style: AppTextStyles.featureDesc.copyWith(
-                          fontSize: 11,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                      Text(
-                        event.humidity,
-                        style: AppTextStyles.cardTitle.copyWith(
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
+          ],
         ],
       ),
     );

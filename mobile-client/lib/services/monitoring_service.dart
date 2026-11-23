@@ -1,7 +1,10 @@
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
+
 import 'audio_monitoring_service.dart';
 import 'firestore_service.dart';
+import 'mahd_notification_service.dart';
 
 class MonitoringSessionNotActiveException implements Exception {
   const MonitoringSessionNotActiveException();
@@ -35,9 +38,13 @@ class MonitoringService {
 
   /// يستدعيها الـML model فقط عندما يكتشف بكاء حقيقي
   /// ويحدد السبب ونسبة الثقة.
+  ///
+  /// It writes one cry event and one linked notification inbox entry. Only
+  /// real model output may call this method; never call it from mock cards.
   Future<void> saveCryData({
     required String cause,
     required double confidence,
+    DateTime? detectedAt,
   }) async {
     final sessionId = activeSessionId;
 
@@ -45,11 +52,44 @@ class MonitoringService {
       throw const MonitoringSessionNotActiveException();
     }
 
-    await _firestoreService.createCryData(
+    // Contract: confidence is a normalized probability in the [0, 1] range.
+    // If the model produces 0..100, convert it in its adapter, not in the UI.
+    if (!confidence.isFinite || confidence < 0 || confidence > 1) {
+      throw ArgumentError.value(confidence, 'confidence', 'Expected 0..1');
+    }
+    final occurrenceTime = detectedAt ?? DateTime.now();
+    final eventId = _firestoreService.reserveCryDataId(sessionId: sessionId);
+
+    // Alert first: same-device notifications must not wait for the cloud.
+    try {
+      await MahdNotificationService.instance.showRealCryLocal(
+        eventId: eventId,
+      );
+    } catch (error) {
+      debugPrint('Mahd local cry alert: $error');
+    }
+
+    // Both writes use the same ID, timestamp, label and confidence. Firestore
+    // can queue them offline and synchronize when connectivity is restored.
+    final cryWrite = _firestoreService.createCryData(
       sessionId: sessionId,
       cause: cause,
       confidence: confidence,
+      detectedAt: occurrenceTime,
+      cryResultId: eventId,
     );
+    final inboxWrite = MahdNotificationService.instance.publishRealCry(
+      eventId: eventId,
+      sessionId: sessionId,
+      cause: cause,
+      confidence: confidence,
+      detectedAt: occurrenceTime,
+    );
+
+    await Future.wait<void>([
+      cryWrite.then((_) {}),
+      inboxWrite,
+    ]);
   }
 
   /// جاهزة للترم القادم عند توفر بيانات الحساسات الحقيقية.

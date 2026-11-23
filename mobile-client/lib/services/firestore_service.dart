@@ -316,17 +316,26 @@ class FirestoreService {
         .collection('cryData');
   }
 
+  /// Reserve the event ID before performing the remote write. This permits an
+  /// immediate local Android/iOS alert even when the network is unavailable.
+  String reserveCryDataId({required String sessionId}) =>
+      _cryData(sessionId).doc().id;
+
   Future<String> createCryData({
     required String sessionId,
     required String cause,
     required double confidence,
+    DateTime? detectedAt,
+    String? cryResultId,
   }) async {
-    final document = _cryData(sessionId).doc();
+    final document = _cryData(sessionId).doc(cryResultId);
 
     await document.set({
       'cause': cause,
       'confidence': confidence,
-      'timestamp': FieldValue.serverTimestamp(),
+      // Inference time, not the potentially delayed upload/server time.
+      'timestamp': Timestamp.fromDate(detectedAt ?? DateTime.now()),
+      'recordedAt': FieldValue.serverTimestamp(),
     });
 
     return document.id;

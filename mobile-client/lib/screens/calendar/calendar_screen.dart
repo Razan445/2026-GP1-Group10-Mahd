@@ -20,7 +20,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
   late DateTime _visibleMonth;
   DateTime? _selectedDate;
 
-  /// Filter for appointment status: 'all', 'upcoming', 'completed'
+  /// Calendar buckets: all / upcoming / missed / completed.
+  /// 'missed' is derived from an unfinished appointment's actual date & time.
   String _statusFilter = 'all';
 
   final List<_Appointment> _appointments = [];
@@ -28,6 +29,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
   StreamSubscription<User?>? _authSubscription;
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>?
       _remindersSubscription;
+  Timer? _upcomingRefreshTimer;
 
   static const List<String> _arabicMonths = [
     'يناير',
@@ -51,10 +53,22 @@ class _CalendarScreenState extends State<CalendarScreen> {
     _visibleMonth = DateTime(now.year, now.month, 1);
     _selectedDate = null;
     _listenToAuthentication();
+
+    // Keep time-dependent buckets and the 'missed' badges current.
+    // No Firestore status is changed automatically when a time passes.
+    _upcomingRefreshTimer = Timer.periodic(
+      const Duration(seconds: 30),
+      (_) {
+        if (mounted && _statusFilter != 'completed') {
+          setState(() {});
+        }
+      },
+    );
   }
 
   @override
   void dispose() {
+    _upcomingRefreshTimer?.cancel();
     _authSubscription?.cancel();
     _remindersSubscription?.cancel();
     super.dispose();
@@ -202,12 +216,54 @@ class _CalendarScreenState extends State<CalendarScreen> {
     return normalized == 'completed' || normalized == 'مكتمل';
   }
 
-  String _relativeDateBadge(_Appointment appointment) {
+  /// Use the same local date/time for every filter, badge and status message.
+  DateTime _appointmentDateTime(_Appointment appointment) {
+    return DateTime(
+      appointment.date.year,
+      appointment.date.month,
+      appointment.date.day,
+      appointment.time.hour,
+      appointment.time.minute,
+    );
+  }
+
+  /// These buckets are mutually exclusive, and 'all' displays all of them.
+  /// An unfinished appointment whose scheduled time has passed is *missed*,
+  /// never automatically *completed*.
+  String _appointmentBucket(_Appointment appointment, DateTime now) {
     if (_isCompleted(appointment)) {
-      return 'مكتمل ✓';
+      return 'completed';
     }
 
+    return _appointmentDateTime(appointment).isAfter(now)
+        ? 'upcoming'
+        : 'missed';
+  }
+
+  String get _emptyAppointmentsMessage {
+    final period = _selectedDate == null ? 'هذا الشهر' : 'هذا اليوم';
+    switch (_statusFilter) {
+      case 'upcoming':
+        return 'لا توجد مواعيد قادمة في $period';
+      case 'missed':
+        return 'لا توجد مواعيد فائتة في $period';
+      case 'completed':
+        return 'لا توجد مواعيد مكتملة في $period';
+      default:
+        return 'لا توجد مواعيد مسجلة في $period';
+    }
+  }
+
+  String _relativeDateBadge(_Appointment appointment) {
     final now = DateTime.now();
+    final bucket = _appointmentBucket(appointment, now);
+    if (bucket == 'completed') {
+      return 'مكتمل ✓';
+    }
+    if (bucket == 'missed') {
+      return 'فائت';
+    }
+
     final today = DateTime(now.year, now.month, now.day);
 
     final target = DateTime(
@@ -305,6 +361,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 
   List<_Appointment> get _filteredAppointments {
+    final now = DateTime.now();
+
     return _appointments.where((appointment) {
       final matchesMonth =
           appointment.date.year == _visibleMonth.year &&
@@ -319,13 +377,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
         return false;
       }
 
-      if (_statusFilter == 'upcoming' &&
-          _isCompleted(appointment)) {
-        return false;
-      }
-
-      if (_statusFilter == 'completed' &&
-          !_isCompleted(appointment)) {
+      // A reminder belongs to exactly one bucket. 'all' is their union.
+      if (_statusFilter != 'all' &&
+          _appointmentBucket(appointment, now) != _statusFilter) {
         return false;
       }
 
@@ -367,6 +421,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
             ? 'active'
             : 'completed';
 
+    // Keep the original scheduled date/time. When completion is removed,
+    // classify against the *current* time (not the previously selected chip).
     try {
       await FirestoreService.instance.updateReminder(
         reminderId: appointment.reminderId,
@@ -375,13 +431,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
             appointment.description.isEmpty
                 ? null
                 : appointment.description,
-        dateTime: DateTime(
-          appointment.date.year,
-          appointment.date.month,
-          appointment.date.day,
-          appointment.time.hour,
-          appointment.time.minute,
-        ),
+        dateTime: _appointmentDateTime(appointment),
         type: appointment.type,
         status: newStatus,
       );
@@ -390,11 +440,16 @@ class _CalendarScreenState extends State<CalendarScreen> {
         return;
       }
 
+      final isFutureAfterSave = _appointmentDateTime(appointment)
+          .isAfter(DateTime.now());
+
       AppSnackBar.show(
         context,
         newStatus == 'completed'
-            ? 'تم تحديد "${appointment.title}" كمكتمل ✓'
-            : 'تمت إعادة "${appointment.title}" إلى المواعيد القادمة',
+            ? 'تم نقل "${appointment.title}" إلى المواعيد المكتملة ✓'
+            : isFutureAfterSave
+                ? 'تمت إعادة "${appointment.title}" إلى المواعيد القادمة'
+                : 'تمت إعادة "${appointment.title}" إلى المواعيد الفائتة',
         type: newStatus == 'completed'
             ? AppSnackBarType.success
             : AppSnackBarType.info,
@@ -472,8 +527,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
     bool showTitleError = false;
 
-    final shouldSave =
-        await showDialog<bool>(
+    // Keep the dialog's text controllers alive until its exit transition
+    // finishes. The Navigator.pop result can arrive before the route has
+    // removed its overlay entries, while TextFields are still mounted.
+    final appointmentDialogRoute = DialogRoute<bool>(
       context: context,
       barrierColor:
           Colors.black.withValues(
@@ -1027,6 +1084,15 @@ class _CalendarScreenState extends State<CalendarScreen> {
       },
     );
 
+    final shouldSave = await Navigator.of(
+      context,
+      rootNavigator: true,
+    ).push<bool>(appointmentDialogRoute);
+
+    // Wait for the overlay to be removed before disposing controllers,
+    // updating the calendar, or showing a save confirmation.
+    await appointmentDialogRoute.completed;
+
     if (shouldSave != true ||
         !mounted) {
       titleController.dispose();
@@ -1090,6 +1156,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
           status: appointment.status,
         );
       }
+
+      // Calendar saving never prompts for notification permission. The
+      // caregiver enables reminders and grants access in notification settings;
+      // the notification service reconciles schedules from Firestore updates.
 
       if (!mounted) {
         return;
@@ -2598,54 +2668,38 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   height: 12,
                 ),
 
-                Row(
+                // Wrap prevents overflow with four chips on small phones.
+                // Existing chip style and the rest of the calendar are unchanged.
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
                   children: [
                     _StatusFilterChip(
                       label: 'الكل',
-                      isSelected:
-                          _statusFilter ==
-                              'all',
+                      isSelected: _statusFilter == 'all',
                       onTap: () {
-                        setState(
-                          () {
-                            _statusFilter =
-                                'all';
-                          },
-                        );
+                        setState(() => _statusFilter = 'all');
                       },
-                    ),
-                    const SizedBox(
-                      width: 8,
                     ),
                     _StatusFilterChip(
                       label: 'القادمة',
-                      isSelected:
-                          _statusFilter ==
-                              'upcoming',
+                      isSelected: _statusFilter == 'upcoming',
                       onTap: () {
-                        setState(
-                          () {
-                            _statusFilter =
-                                'upcoming';
-                          },
-                        );
+                        setState(() => _statusFilter = 'upcoming');
                       },
                     ),
-                    const SizedBox(
-                      width: 8,
+                    _StatusFilterChip(
+                      label: 'الفائتة',
+                      isSelected: _statusFilter == 'missed',
+                      onTap: () {
+                        setState(() => _statusFilter = 'missed');
+                      },
                     ),
                     _StatusFilterChip(
                       label: 'المكتملة',
-                      isSelected:
-                          _statusFilter ==
-                              'completed',
+                      isSelected: _statusFilter == 'completed',
                       onTap: () {
-                        setState(
-                          () {
-                            _statusFilter =
-                                'completed';
-                          },
-                        );
+                        setState(() => _statusFilter = 'completed');
                       },
                     ),
                   ],
@@ -2658,6 +2712,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 if (appointmentsList
                     .isEmpty)
                   _NoAppointmentsCard(
+                    message: _emptyAppointmentsMessage,
                     hasSelectedDay:
                         _selectedDate !=
                             null,
@@ -2718,6 +2773,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
                             _isCompleted(
                           appointment,
                         ),
+                        isFuture: _appointmentDateTime(appointment)
+                            .isAfter(DateTime.now()),
                         date:
                             _formatDate(
                           appointment
@@ -3464,6 +3521,7 @@ class _AppointmentCard
     required this.typeLabel,
     required this.relativeBadge,
     required this.isCompleted,
+    required this.isFuture,
     required this.date,
     required this.time,
     required this.onToggleStatus,
@@ -3480,6 +3538,7 @@ class _AppointmentCard
   final String relativeBadge;
 
   final bool isCompleted;
+  final bool isFuture;
 
   final String date;
   final String time;
@@ -3539,7 +3598,7 @@ class _AppointmentCard
         children: [
           IconButton(
             tooltip: isCompleted
-                ? 'إعادة إلى القادمة'
+                ? (isFuture ? 'إعادة إلى القادمة' : 'إعادة إلى الفائتة')
                 : 'تحديد كمكتمل',
             visualDensity:
                 VisualDensity.compact,
@@ -4129,11 +4188,13 @@ class _DialogPickerTile
 class _NoAppointmentsCard
     extends StatelessWidget {
   const _NoAppointmentsCard({
+    required this.message,
     required this.hasSelectedDay,
     required this.onShowAllMonth,
     required this.onAddAppointment,
   });
 
+  final String message;
   final bool hasSelectedDay;
   final VoidCallback?
       onShowAllMonth;
@@ -4186,9 +4247,7 @@ class _NoAppointmentsCard
             height: 10,
           ),
           Text(
-            hasSelectedDay
-                ? 'لا توجد مواعيد مسجلة في هذا اليوم'
-                : 'لا توجد مواعيد في هذا الشهر',
+            message,
             style:
                 AppTextStyles
                     .featureDesc
