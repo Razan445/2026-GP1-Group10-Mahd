@@ -1,3 +1,4 @@
+
 name: mahd_app
 description: مهد — تطبيق مراقبة صوتية ذكية للأطفال
 publish_to: "none"
@@ -26,6 +27,11 @@ dependencies:
   shared_preferences: ^2.5.6
   pdf: ^3.13.1
   printing: ^5.15.1
+
+  # GP1 Local Notifications (no FCM required)
+  flutter_local_notifications: ^18.0.1
+  flutter_timezone: ^4.1.1
+  timezone: ^0.10.1
 
 dev_dependencies:
   flutter_test:

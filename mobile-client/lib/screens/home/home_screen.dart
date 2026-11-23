@@ -8,6 +8,8 @@ import '../../core/utils/arabic_number_formatter.dart';
 import '../../core/utils/child_age_formatter.dart';
 import '../../services/audio_monitoring_service.dart';
 import '../../services/firestore_service.dart';
+import '../../services/cry_events_repository.dart';
+import '../../services/mahd_notification_service.dart';
 import '../../services/child_content_repository.dart';
 import '../calendar/calendar_screen.dart';
 import '../child_development/child_development_gate.dart';
@@ -25,10 +27,38 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
-  bool _hasImportantReminders = true;
+  bool _hasImportantReminders = false;
   bool _isMonitoring = false;
   bool _isMonitoringActionInProgress = false;
   String? _activeSessionId;
+
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _unreadSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    final notifications = MahdNotificationService.instance;
+    _unreadSubscription = notifications.watchUnread().listen((snapshot) {
+      if (!mounted) return;
+      setState(() => _hasImportantReminders = snapshot.docs.isNotEmpty);
+    }, onError: (Object error) {
+      debugPrint('Bell unread status: $error');
+    });
+    notifications.navigationRequest.addListener(_handleNotificationNavigation);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final initial = notifications.takeInitialDestination();
+      if (initial != null) setState(() => _currentIndex = initial.tabIndex);
+    });
+  }
+
+  void _handleNotificationNavigation() {
+    final notifications = MahdNotificationService.instance;
+    final destination = notifications.navigationRequest.value;
+    if (destination == null || !mounted) return;
+    setState(() => _currentIndex = destination.tabIndex);
+    notifications.navigationRequest.value = null;
+  }
 
   Timer? _monitoringTimer;
   int _currentSessionSeconds = 0;
@@ -100,6 +130,10 @@ class _HomeScreenState extends State<HomeScreen> {
     });
 
     try {
+      // Android/iOS: ask about external alert delivery when monitoring starts.
+      // Denying notifications does not prevent local audio monitoring.
+      await MahdNotificationService.instance.requestNotificationPermission();
+
       // Start the real microphone stream first.
       // A Firestore session is created only if microphone startup succeeds.
       await AudioMonitoringService.instance.startMonitoring();
@@ -228,6 +262,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    _unreadSubscription?.cancel();
+    MahdNotificationService.instance.navigationRequest.removeListener(
+      _handleNotificationNavigation,
+    );
     _monitoringTimer?.cancel();
     unawaited(
       _cleanupMonitoringOnDispose(_activeSessionId),
@@ -237,10 +275,6 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _showReminderDialog() async {
-    setState(() {
-      _hasImportantReminders = false;
-    });
-
     await showDialog<void>(
       context: context,
       barrierColor: Colors.black.withValues(alpha: 0.28),
@@ -254,14 +288,16 @@ class _HomeScreenState extends State<HomeScreen> {
               borderRadius: BorderRadius.circular(24),
             ),
             title: Text(
-              'عندك تذكيرات مهمة',
+              _hasImportantReminders ? 'عندك إشعارات جديدة' : 'ما عندك إشعارات جديدة',
               textAlign: TextAlign.center,
               style: AppTextStyles.screenTitle.copyWith(
                 fontSize: 18,
               ),
             ),
             content: Text(
-              'لديك تذكيرات تحتاج إلى انتباهك. يمكنك عرضها في التقويم.',
+              _hasImportantReminders
+                  ? 'لديك تنبيهات جديدة من مهد، يمكنك عرضها في السجل أو التقويم.'
+                  : 'ستظهر هنا إشعارات مهد الجديدة عند وصولها.',
               textAlign: TextAlign.center,
               style: AppTextStyles.helperText.copyWith(
                 fontSize: 11.5,
@@ -307,13 +343,20 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.of(dialogContext).pop();
-
-                        setState(() {
-                          _currentIndex = 2;
-                        });
-                      },
+                      onPressed: _hasImportantReminders
+                          ? () async {
+                              Navigator.of(dialogContext).pop();
+                              try {
+                                final tab = await MahdNotificationService.instance
+                                    .markUnreadAndGetTargetTab();
+                                if (mounted && tab != null) {
+                                  setState(() => _currentIndex = tab);
+                                }
+                              } catch (error) {
+                                debugPrint('Open notification bell: $error');
+                              }
+                            }
+                          : null,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
                         foregroundColor: Colors.white,
@@ -1257,332 +1300,152 @@ class _StartMonitoringButton
 
 // ── Latest detected cry / event ──────────────────────────────────
 
-class _LatestCryEventCard extends StatelessWidget {
+class _LatestCryEventCard extends StatefulWidget {
   const _LatestCryEventCard();
 
-  /// 🔧 MOCK — static classification & sensor values until AI inference is connected.
-  static const String _cause = 'جوع';
-  static const String _confidence = '٩٢٪';
-  static const String _timestamp =
-      'منذ ١٥ دقيقة';
-  static const String _temperature =
-      '٢٤°م';
-  static const String _humidity = '٤٥٪';
+  @override
+  State<_LatestCryEventCard> createState() => _LatestCryEventCardState();
+}
+
+class _LatestCryEventCardState extends State<_LatestCryEventCard> {
+  late final Stream<List<MahdCryEvent>> _eventsStream;
+
+  @override
+  void initState() {
+    super.initState();
+    _eventsStream = CryEventsRepository.instance.watchEvents();
+  }
+
+  String _timeLabel(DateTime date) {
+    final hour = date.hour % 12 == 0 ? 12 : date.hour % 12;
+    final minute = date.minute.toString().padLeft(2, '0');
+    final period = date.hour < 12 ? 'ص' : 'م';
+    return ArabicNumberFormatter.toArabic('$hour:$minute $period');
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 16,
-        vertical: 14,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.cardSurface,
-        borderRadius:
-            BorderRadius.circular(22),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0D785037),
-            blurRadius: 14,
-            offset: Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment:
-                CrossAxisAlignment.center,
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: AppColors.iconBg,
-                  borderRadius:
-                      BorderRadius.circular(
-                    14,
-                  ),
-                ),
-                alignment:
-                    Alignment.center,
-                child: const Icon(
-                  Icons.child_care_rounded,
-                  size: 22,
-                  color: AppColors.primary,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
-                  mainAxisSize:
-                      MainAxisSize.min,
-                  children: [
-                    Text(
-                      'آخر حالة بكاء تم رصدها',
-                      style: AppTextStyles
-                          .cardTitle
-                          .copyWith(
-                        fontSize: 14,
-                        fontWeight:
-                            FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      _timestamp,
-                      style: AppTextStyles
-                          .featureDesc
-                          .copyWith(
-                        fontSize: 11,
-                        color: AppColors
-                            .textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(
-                  horizontal: 9,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: const Color(
-                    0xFFEAF3E8,
-                  ),
-                  borderRadius:
-                      BorderRadius.circular(
-                    999,
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize:
-                      MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 5,
-                      height: 5,
-                      decoration:
-                          const BoxDecoration(
-                        color: Color(
-                          0xFF4F7A4A,
-                        ),
-                        shape:
-                            BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                  ],
-                ),
+    return StreamBuilder<List<MahdCryEvent>>(
+      stream: _eventsStream,
+      builder: (context, snapshot) {
+        final event = snapshot.data?.isNotEmpty == true
+            ? snapshot.data!.first
+            : null;
+        final confidence = event?.confidence;
+        final confidenceText = confidence == null ||
+                !confidence.isFinite || confidence < 0 || confidence > 1
+            ? null
+            : ArabicNumberFormatter.toArabic(
+                '${(confidence * 100).toStringAsFixed(1)}٪',
+              );
+
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            color: AppColors.cardSurface,
+            borderRadius: BorderRadius.circular(22),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x0D785037),
+                blurRadius: 14,
+                offset: Offset(0, 4),
               ),
             ],
           ),
-
-          const SizedBox(height: 10),
-
-          Container(
-            padding:
-                const EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: 9,
-            ),
-            decoration: BoxDecoration(
-              color:
-                  AppColors.backgroundCream,
-              borderRadius:
-                  BorderRadius.circular(
-                12,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: AppColors.iconBg,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    alignment: Alignment.center,
+                    child: const Icon(
+                      Icons.child_care_rounded,
+                      size: 22,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'آخر حالة بكاء تم رصدها',
+                          style: AppTextStyles.cardTitle.copyWith(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          event == null
+                              ? 'لا توجد حالة بكاء مسجّلة بعد'
+                              : _timeLabel(event.detectedAt),
+                          style: AppTextStyles.featureDesc.copyWith(
+                            fontSize: 11,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-            ),
-            child: Column(
-              children: [
-                Row(
-                  mainAxisAlignment:
-                      MainAxisAlignment
-                          .spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        Text(
-                          'السبب المحتمل: ',
-                          style: AppTextStyles
-                              .featureDesc
-                              .copyWith(
-                            fontSize: 11.5,
-                            color: AppColors
-                                .textSecondary,
-                          ),
-                        ),
-                        Text(
-                          _cause,
-                          style: AppTextStyles
-                              .cardTitle
-                              .copyWith(
-                            fontSize: 12,
-                            fontWeight:
-                                FontWeight
-                                    .w600,
-                            color: AppColors
-                                .textPrimary,
-                          ),
-                        ),
-                      ],
-                    ),
-                    Row(
-                      children: [
-                        Text(
-                          'نسبة التأكد: ',
-                          style: AppTextStyles
-                              .featureDesc
-                              .copyWith(
-                            fontSize: 11.5,
-                            color: AppColors
-                                .textSecondary,
-                          ),
-                        ),
-                        Text(
-                          _confidence,
-                          style: AppTextStyles
-                              .cardTitle
-                              .copyWith(
-                            fontSize: 12,
-                            fontWeight:
-                                FontWeight
-                                    .w600,
-                            color: AppColors
-                                .primary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-
-                const Padding(
-                  padding:
-                      EdgeInsets.symmetric(
-                    vertical: 8,
+              if (event != null) ...[
+                const SizedBox(height: 10),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 9,
                   ),
-                  child: Divider(
-                    height: 1,
-                    thickness: 1,
-                    color:
-                        AppColors.borderBeige,
+                  decoration: BoxDecoration(
+                    color: AppColors.backgroundCream,
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                ),
-
-                Row(
-                  children: [
-                    Expanded(
-                      child: Row(
-                        mainAxisSize:
-                            MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            Icons
-                                .thermostat_rounded,
-                            size: 15,
-                            color:
-                                AppColors.primary,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Flexible(
+                        child: Text(
+                          'السبب المحتمل: ${mahdCryLabelArabic(event.cause)}',
+                          style: AppTextStyles.featureDesc.copyWith(
+                            fontSize: 11.5,
+                            color: AppColors.textPrimary,
                           ),
-                          const SizedBox(
-                            width: 5,
-                          ),
-                          Text(
-                            'درجة الحرارة: ',
-                            style: AppTextStyles
-                                .featureDesc
-                                .copyWith(
-                              fontSize: 11,
-                              color: AppColors
-                                  .textSecondary,
-                            ),
-                          ),
-                          Text(
-                            _temperature,
-                            style: AppTextStyles
-                                .cardTitle
-                                .copyWith(
-                              fontSize: 11.5,
-                              fontWeight:
-                                  FontWeight
-                                      .w600,
-                              color: AppColors
-                                  .textPrimary,
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
-                    ),
-                    Container(
-                      width: 1,
-                      height: 14,
-                      color:
-                          AppColors.borderBeige,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Row(
-                        mainAxisSize:
-                            MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            Icons
-                                .water_drop_outlined,
-                            size: 15,
-                            color: Color(
-                              0xFF4F7A4A,
-                            ),
+                      if (confidenceText != null)
+                        Text(
+                          'الثقة: $confidenceText',
+                          style: AppTextStyles.cardTitle.copyWith(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.primary,
                           ),
-                          const SizedBox(
-                            width: 5,
-                          ),
-                          Text(
-                            'الرطوبة: ',
-                            style: AppTextStyles
-                                .featureDesc
-                                .copyWith(
-                              fontSize: 11,
-                              color: AppColors
-                                  .textSecondary,
-                            ),
-                          ),
-                          Text(
-                            _humidity,
-                            style: AppTextStyles
-                                .cardTitle
-                                .copyWith(
-                              fontSize: 11.5,
-                              fontWeight:
-                                  FontWeight
-                                      .w600,
-                              color: AppColors
-                                  .textPrimary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+                        ),
+                    ],
+                  ),
                 ),
               ],
-            ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
 
 // ── Quick stats row ──────────────────────────────────────────────
 
-class _QuickStatsRow extends StatelessWidget {
+class _QuickStatsRow extends StatefulWidget {
   const _QuickStatsRow({
     required this.isMonitoring,
     required this.durationText,
@@ -1592,23 +1455,46 @@ class _QuickStatsRow extends StatelessWidget {
   final String durationText;
 
   @override
+  State<_QuickStatsRow> createState() => _QuickStatsRowState();
+}
+
+class _QuickStatsRowState extends State<_QuickStatsRow> {
+  late final Stream<List<MahdCryEvent>> _eventsStream;
+
+  @override
+  void initState() {
+    super.initState();
+    _eventsStream = CryEventsRepository.instance.watchEvents();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        const _StatTile(
-          value: '٠',
-          label: 'أحداث بكاء اليوم',
-          valueColor: AppColors.primary,
-        ),
-        const SizedBox(width: 10),
-        _StatTile(
-          value: durationText,
-          label: 'مدة المراقبة',
-          valueColor: isMonitoring
-              ? const Color(0xFF4F7A4A)
-              : AppColors.textPrimary,
-        ),
-      ],
+    return StreamBuilder<List<MahdCryEvent>>(
+      stream: _eventsStream,
+      builder: (context, snapshot) {
+        final now = DateTime.now();
+        final today = DateTime(now.year, now.month, now.day);
+        final count = (snapshot.data ?? const <MahdCryEvent>[])
+            .where((event) => !event.detectedAt.isBefore(today))
+            .length;
+        return Row(
+          children: [
+            _StatTile(
+              value: ArabicNumberFormatter.formatInt(count),
+              label: 'أحداث بكاء اليوم',
+              valueColor: AppColors.primary,
+            ),
+            const SizedBox(width: 10),
+            _StatTile(
+              value: widget.durationText,
+              label: 'مدة المراقبة',
+              valueColor: widget.isMonitoring
+                  ? const Color(0xFF4F7A4A)
+                  : AppColors.textPrimary,
+            ),
+          ],
+        );
+      },
     );
   }
 }

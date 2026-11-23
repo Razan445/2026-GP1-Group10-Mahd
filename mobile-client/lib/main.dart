@@ -13,6 +13,7 @@ import 'screens/login/login_screen.dart';
 import 'screens/onboarding/onboarding_screen.dart';
 import 'screens/sign_up/sign_up_screen.dart';
 import 'screens/splash/splash_screen.dart';
+import 'services/mahd_notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -20,6 +21,10 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  // Register local alarms and navigation before building any routes.
+  // This never displays a notification-permission prompt at startup.
+  await MahdNotificationService.instance.initialize();
 
   // Lock orientation to portrait
   SystemChrome.setPreferredOrientations([

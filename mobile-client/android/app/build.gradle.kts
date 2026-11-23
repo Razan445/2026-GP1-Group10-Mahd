@@ -1,3 +1,4 @@
+
 plugins {
     id("com.android.application")
     // START: FlutterFire Configuration
@@ -9,10 +10,17 @@ plugins {
 
 android {
     namespace = "com.mahd.mahd_app"
-    compileSdk = flutter.compileSdkVersion
+
+    // Local notifications require compileSdk 35 or higher.
+    // Keep Flutter's SDK version if it is already newer.
+    compileSdk = maxOf(35, flutter.compileSdkVersion)
+
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
+        // Required for flutter_local_notifications scheduled notifications.
+        isCoreLibraryDesugaringEnabled = true
+
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
@@ -35,6 +43,11 @@ android {
             signingConfig = signingConfigs.getByName("debug")
         }
     }
+}
+
+// Required for Java API desugaring used by local notifications.
+dependencies {
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 }
 
 kotlin {

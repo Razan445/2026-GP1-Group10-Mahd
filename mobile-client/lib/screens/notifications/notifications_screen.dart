@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../services/local_settings_service.dart';
+import '../../services/mahd_notification_service.dart';
 import '../../widgets/app_snack_bar.dart';
 
 class NotificationsScreen extends StatefulWidget {
@@ -20,7 +21,8 @@ class NotificationsScreen extends StatefulWidget {
 class _NotificationsScreenState
     extends State<NotificationsScreen> {
   bool _cryAlerts = true;
-  bool _environmentAlerts = true;
+  bool _reminderAlerts = false;
+  bool _reminderChangeInProgress = false;
   bool _connectionAlerts = true;
 
   bool _isLoading = true;
@@ -37,7 +39,7 @@ class _NotificationsScreenState
         LocalSettingsService.instance
             .getCryAlertsEnabled(),
         LocalSettingsService.instance
-            .getEnvironmentAlertsEnabled(),
+            .getReminderAlertsEnabled(),
         LocalSettingsService.instance
             .getConnectionAlertsEnabled(),
       ]);
@@ -48,7 +50,7 @@ class _NotificationsScreenState
 
       setState(() {
         _cryAlerts = values[0];
-        _environmentAlerts = values[1];
+        _reminderAlerts = values[1];
         _connectionAlerts = values[2];
         _isLoading = false;
       });
@@ -77,6 +79,23 @@ class _NotificationsScreenState
     });
 
     try {
+      if (value) {
+        final allowed = await MahdNotificationService.instance
+            .requestNotificationPermission();
+        if (!allowed) {
+          if (mounted) {
+            setState(() {
+              _cryAlerts = previousValue;
+            });
+            AppSnackBar.show(
+              context,
+              'اسمحي بإشعارات مهد من إعدادات الجهاز لتفعيل تنبيهات البكاء',
+              type: AppSnackBarType.error,
+            );
+          }
+          return;
+        }
+      }
       await LocalSettingsService.instance
           .setCryAlertsEnabled(value);
     } catch (e) {
@@ -96,32 +115,59 @@ class _NotificationsScreenState
     }
   }
 
-  Future<void> _setEnvironmentAlerts(
+  Future<void> _setReminderAlerts(
     bool value,
   ) async {
-    final previousValue = _environmentAlerts;
+    if (_reminderChangeInProgress) return;
+    final previousValue = _reminderAlerts;
 
     setState(() {
-      _environmentAlerts = value;
+      _reminderAlerts = value;
+      _reminderChangeInProgress = true;
     });
 
     try {
-      await LocalSettingsService.instance
-          .setEnvironmentAlertsEnabled(value);
-    } catch (e) {
-      debugPrint(
-        'Environment notification setting save error: $e',
-      );
+      if (value) {
+        // Android/iOS permission is requested only when the caregiver
+        // explicitly enables calendar reminders in Settings.
+        final allowed = await MahdNotificationService.instance
+            .requestNotificationPermission();
+        if (!allowed) {
+          if (mounted) {
+            setState(() {
+              _reminderAlerts = previousValue;
+            });
+            AppSnackBar.show(
+              context,
+              'اسمحي بإشعارات مهد من إعدادات الجهاز لتفعيل التذكيرات',
+              type: AppSnackBarType.error,
+            );
+          }
+          return;
+        }
 
-      if (!mounted) {
-        return;
+        // Exact delivery is optional: the service schedules an inexact
+        // Android alarm when precise-alarm access is not available.
+        await MahdNotificationService.instance
+            .requestExactAlarmPermission();
       }
 
-      setState(() {
-        _environmentAlerts = previousValue;
-      });
+      await MahdNotificationService.instance
+          .setReminderAlertsEnabled(value);
+    } catch (e) {
+      debugPrint('Reminder notification setting save error: $e');
 
+      if (!mounted) return;
+      setState(() {
+        _reminderAlerts = previousValue;
+      });
       _showSaveError();
+    } finally {
+      if (mounted) {
+        setState(() {
+          _reminderChangeInProgress = false;
+        });
+      }
     }
   }
 
@@ -198,7 +244,7 @@ class _NotificationsScreenState
             const SizedBox(height: 16),
 
             Text(
-              'تصلك الإشعارات عند رصد الأحداث المهمة حتى لو كان التطبيق مغلقًا.',
+              'اختاري التنبيهات التي ترغبين في استقبالها من مهد.',
               style: AppTextStyles.helperText.copyWith(
                 fontSize: 11.5,
                 height: 1.8,
@@ -239,7 +285,7 @@ class _NotificationsScreenState
                         _NotificationRow(
                           title: 'تنبيهات البكاء',
                           subtitle:
-                              'مع السبب المحتمل ودرجة الثقة',
+                              'مع السبب المحتمل ودرجة الثقة وقراءات البيئة المتاحة',
                           value: _cryAlerts,
                           onChanged: _setCryAlerts,
                         ),
@@ -247,12 +293,13 @@ class _NotificationsScreenState
                         const _NotificationDivider(),
 
                         _NotificationRow(
-                          title: 'تنبيهات البيئة',
+                          title: 'تذكيرات المواعيد',
                           subtitle:
-                              'عند تغير الحرارة أو الرطوبة عن النطاق المناسب',
-                          value: _environmentAlerts,
-                          onChanged:
-                              _setEnvironmentAlerts,
+                              'تنبيه عند حلول موعد مستقبلي غير مكتمل في التقويم',
+                          value: _reminderAlerts,
+                          onChanged: _reminderChangeInProgress
+                              ? null
+                              : _setReminderAlerts,
                         ),
 
                         const _NotificationDivider(),
@@ -296,7 +343,7 @@ class _NotificationsScreenState
 
                   Expanded(
                     child: Text(
-                      'ننصح بإبقاء تنبيهات البكاء وانقطاع الاتصال مفعّلة لمتابعة حالة الطفل.',
+                      'إيقاف التنبيهات لا يوقف المراقبة أو حفظ نتائجها في السجل. وإيقاف تذكيرات المواعيد لا يحذف المواعيد من التقويم.',
                       style:
                           AppTextStyles.helperText.copyWith(
                         fontSize: 10.5,
@@ -329,7 +376,7 @@ class _NotificationRow extends StatelessWidget {
   final String title;
   final String subtitle;
   final bool value;
-  final ValueChanged<bool> onChanged;
+  final ValueChanged<bool>? onChanged;
 
   @override
   Widget build(BuildContext context) {
