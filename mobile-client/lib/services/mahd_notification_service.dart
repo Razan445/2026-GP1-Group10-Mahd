@@ -383,14 +383,14 @@ class MahdNotificationService with WidgetsBindingObserver {
 
     await _plugin.zonedSchedule(
       notificationId,
-      'مهد — تذكير موعد',
-      title.isEmpty ? 'حان وقت الموعد الذي أضفته في التقويم' : title,
+      'مهد — تذكير',
+      title.isEmpty ? 'حان وقت التذكير الذي أضفته' : title,
       tz.TZDateTime.from(dateTime, tz.local),
       const NotificationDetails(
         android: AndroidNotificationDetails(
           _reminderChannelId,
-          'تذكيرات التقويم',
-          channelDescription: 'تنبيهات المواعيد المجدولة في تقويم مهد',
+          'التذكيرات',
+          channelDescription: 'تنبيهات التذكيرات المجدولة في مهد',
           importance: Importance.high,
           priority: Priority.high,
         ),

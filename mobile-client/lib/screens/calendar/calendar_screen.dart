@@ -175,7 +175,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
       case 'vaccination':
         return 'تطعيم';
       case 'medical':
-        return 'موعد طبي';
+        return 'تذكير طبي';
       case 'care':
         return 'رعاية';
       case 'other':
@@ -245,13 +245,13 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final period = _selectedDate == null ? 'هذا الشهر' : 'هذا اليوم';
     switch (_statusFilter) {
       case 'upcoming':
-        return 'لا توجد مواعيد قادمة في $period';
+        return 'لا توجد تذكيرات قادمة في $period';
       case 'missed':
-        return 'لا توجد مواعيد فائتة في $period';
+        return 'لا توجد تذكيرات فائتة في $period';
       case 'completed':
-        return 'لا توجد مواعيد مكتملة في $period';
+        return 'لا توجد تذكيرات مكتملة في $period';
       default:
-        return 'لا توجد مواعيد مسجلة في $period';
+        return 'لا توجد تذكيرات مسجلة في $period';
     }
   }
 
@@ -447,10 +447,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
       AppSnackBar.show(
         context,
         newStatus == 'completed'
-            ? 'تم نقل "${appointment.title}" إلى المواعيد المكتملة ✓'
+            ? 'تم نقل "${appointment.title}" إلى التذكيرات المكتملة ✓'
             : isFutureAfterSave
-                ? 'تمت إعادة "${appointment.title}" إلى المواعيد القادمة'
-                : 'تمت إعادة "${appointment.title}" إلى المواعيد الفائتة',
+                ? 'تمت إعادة "${appointment.title}" إلى التذكيرات القادمة'
+                : 'تمت إعادة "${appointment.title}" إلى التذكيرات الفائتة',
         type: newStatus == 'completed'
             ? AppSnackBarType.success
             : AppSnackBarType.info,
@@ -466,7 +466,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
       AppSnackBar.show(
         context,
-        'تعذر تحديث حالة الموعد',
+        'تعذر تحديث حالة التذكير',
         type: AppSnackBarType.error,
       );
     }
@@ -581,8 +581,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 title: Center(
                   child: Text(
                     appointment == null
-                        ? 'إضافة موعد جديد'
-                        : 'تعديل الموعد',
+                        ? 'إضافة تذكير جديد'
+                        : 'تعديل التذكير',
                     style: AppTextStyles
                         .screenTitle
                         .copyWith(
@@ -602,7 +602,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                               .start,
                       children: [
                         Text(
-                          'نوع الموعد',
+                          'نوع التذكير',
                           style: AppTextStyles
                               .featureDesc
                               .copyWith(
@@ -642,7 +642,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                             ),
                             _TypeChipOption(
                               label:
-                                  'موعد طبي',
+                                  'تذكير طبي',
                               value: 'medical',
                               icon: Icons
                                   .medical_services_outlined,
@@ -773,12 +773,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           decoration:
                               InputDecoration(
                             labelText:
-                                'اسم الموعد',
+                                'اسم التذكير',
                             hintText:
                                 'مثال: تطعيم الشهرين',
                             errorText:
                                 showTitleError
-                                    ? 'يرجى كتابة اسم الموعد'
+                                    ? 'يرجى كتابة اسم التذكير'
                                     : null,
                             filled: true,
                             fillColor:
@@ -1183,8 +1183,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
       AppSnackBar.show(
         context,
         appointment == null
-            ? 'تمت إضافة الموعد بنجاح'
-            : 'تم حفظ تعديلات الموعد',
+            ? 'تمت إضافة التذكير بنجاح'
+            : 'تم حفظ تعديلات التذكير',
         type: AppSnackBarType.success,
       );
     } on FirebaseException catch (e) {
@@ -1198,7 +1198,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
       AppSnackBar.show(
         context,
-        'حدث خطأ أثناء حفظ الموعد',
+        'حدث خطأ أثناء حفظ التذكير',
         type: AppSnackBarType.error,
       );
     } catch (e) {
@@ -1212,7 +1212,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
       AppSnackBar.show(
         context,
-        'حدث خطأ أثناء حفظ الموعد',
+        'حدث خطأ أثناء حفظ التذكير',
         type: AppSnackBarType.error,
       );
     }
@@ -1270,7 +1270,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
             ),
             title: Center(
               child: Text(
-                'حذف الموعد؟',
+                'حذف التذكير؟',
                 style: AppTextStyles
                     .screenTitle
                     .copyWith(
@@ -1417,7 +1417,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
       AppSnackBar.show(
         context,
-        'حدث خطأ أثناء حذف الموعد',
+        'حدث خطأ أثناء حذف التذكير',
         type: AppSnackBarType.error,
       );
     } catch (e) {
@@ -1431,7 +1431,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
       AppSnackBar.show(
         context,
-        'حدث خطأ أثناء حذف الموعد',
+        'حدث خطأ أثناء حذف التذكير',
         type: AppSnackBarType.error,
       );
     }
@@ -1581,7 +1581,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
                         AppSnackBar.show(
                           context,
-                          'تمت استعادة الموعد بنجاح',
+                          'تمت استعادة التذكير بنجاح',
                           type:
                               AppSnackBarType
                                   .success,
@@ -2237,8 +2237,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           Text(
                             _selectedDate !=
                                     null
-                                ? 'مواعيد ${_formatDate(_selectedDate!)}'
-                                : 'مواعيد شهر ${_arabicMonths[_visibleMonth.month - 1]}',
+                                ? 'تذكيرات ${_formatDate(_selectedDate!)}'
+                                : 'تذكيرات شهر ${_arabicMonths[_visibleMonth.month - 1]}',
                             style:
                                 AppTextStyles
                                     .cardTitle
@@ -2270,7 +2270,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                 },
                                 child:
                                     Text(
-                                  'عرض جميع مواعيد الشهر ✕',
+                                  'عرض جميع تذكيرات الشهر ✕',
                                   style:
                                       AppTextStyles
                                           .featureDesc
@@ -2323,7 +2323,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                         size: 18,
                       ),
                       label: Text(
-                        'إضافة موعد',
+                        'إضافة تذكير',
                         style:
                             AppTextStyles
                                 .featureDesc
@@ -2511,7 +2511,7 @@ class _CalendarHeader
     return Row(
       children: [
         Text(
-          'التقويم والتذكيرات',
+          'التذكيرات',
           style:
               AppTextStyles.cardTitle
                   .copyWith(
@@ -3498,7 +3498,7 @@ class _AppointmentCard
             children: [
               PopupMenuButton<String>(
                 tooltip:
-                    'خيارات الموعد',
+                    'خيارات التذكير',
                 icon: const Icon(
                   Icons
                       .more_vert_rounded,
@@ -3949,7 +3949,7 @@ class _NoAppointmentsCard
                   onPressed:
                       onShowAllMonth,
                   child: Text(
-                    'عرض كل مواعيد الشهر',
+                    'عرض كل تذكيرات الشهر',
                     style:
                         AppTextStyles
                             .featureDesc
@@ -3974,7 +3974,7 @@ class _NoAppointmentsCard
                       AppColors.primary,
                 ),
                 label: Text(
-                  'إضافة موعد جديد',
+                  'إضافة تذكير جديد',
                   style:
                       AppTextStyles
                           .featureDesc

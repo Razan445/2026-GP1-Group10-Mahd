@@ -23,7 +23,6 @@ class _NotificationsScreenState
   bool _cryAlerts = false;
   bool _reminderAlerts = false;
   bool _reminderChangeInProgress = false;
-  bool _connectionAlerts = true;
 
   bool _isLoading = true;
 
@@ -40,8 +39,6 @@ class _NotificationsScreenState
             .getCryAlertsEnabled(),
         LocalSettingsService.instance
             .getReminderAlertsEnabled(),
-        LocalSettingsService.instance
-            .getConnectionAlertsEnabled(),
       ]);
 
       if (!mounted) {
@@ -51,7 +48,6 @@ class _NotificationsScreenState
       setState(() {
         _cryAlerts = values[0];
         _reminderAlerts = values[1];
-        _connectionAlerts = values[2];
         _isLoading = false;
       });
     } catch (e) {
@@ -171,35 +167,6 @@ class _NotificationsScreenState
     }
   }
 
-  Future<void> _setConnectionAlerts(
-    bool value,
-  ) async {
-    final previousValue = _connectionAlerts;
-
-    setState(() {
-      _connectionAlerts = value;
-    });
-
-    try {
-      await LocalSettingsService.instance
-          .setConnectionAlertsEnabled(value);
-    } catch (e) {
-      debugPrint(
-        'Connection notification setting save error: $e',
-      );
-
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _connectionAlerts = previousValue;
-      });
-
-      _showSaveError();
-    }
-  }
-
   void _showSaveError() {
     AppSnackBar.show(
         context,
@@ -293,9 +260,9 @@ class _NotificationsScreenState
                         const _NotificationDivider(),
 
                         _NotificationRow(
-                          title: 'تذكيرات المواعيد',
+                          title: 'تنبيهات التذكيرات',
                           subtitle:
-                              'تنبيه عند حلول موعد مستقبلي غير مكتمل في التقويم',
+                              'تنبيه عند حلول وقت تذكير قادم غير مكتمل',
                           value: _reminderAlerts,
                           onChanged: _reminderChangeInProgress
                               ? null
@@ -304,13 +271,16 @@ class _NotificationsScreenState
 
                         const _NotificationDivider(),
 
-                        _NotificationRow(
-                          title: 'انقطاع الاتصال',
-                          subtitle:
-                              'تنبيه عند توقف اتصال جهاز مَهد',
-                          value: _connectionAlerts,
-                          onChanged:
-                              _setConnectionAlerts,
+                        // GP2: Keep this option visible but unavailable.
+                        Opacity(
+                          opacity: 0.45,
+                          child: _NotificationRow(
+                            title: 'انقطاع الاتصال',
+                            subtitle:
+                                'متاح في GP2 — تنبيه عند توقف اتصال جهاز مَهد',
+                            value: false,
+                            onChanged: null,
+                          ),
                         ),
                       ],
                     ),
@@ -343,7 +313,7 @@ class _NotificationsScreenState
 
                   Expanded(
                     child: Text(
-                      'إيقاف التنبيهات لا يوقف المراقبة أو حفظ نتائجها في السجل. وإيقاف تذكيرات المواعيد لا يحذف المواعيد من التقويم.',
+                      'إيقاف التنبيهات لا يوقف المراقبة أو حفظ نتائجها في السجل. وإيقاف تنبيهات التذكيرات لا يحذف التذكيرات من التقويم.',
                       style:
                           AppTextStyles.helperText.copyWith(
                         fontSize: 10.5,

@@ -109,12 +109,7 @@ const _causeStats = [
 //  Screen
 // ──────────────────────────────────────────────
 class HistoryScreen extends StatefulWidget {
-  const HistoryScreen({
-    super.key,
-    required this.onStartMonitoring,
-  });
-
-  final VoidCallback onStartMonitoring;
+  const HistoryScreen({super.key});
 
   @override
   State<HistoryScreen> createState() => _HistoryScreenState();
@@ -184,9 +179,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                         ))
                     .toList(growable: false);
                 return events.isEmpty
-                    ? _EmptyState(
-                      onStartMonitoring: widget.onStartMonitoring,
-                    )
+                    ? const _EmptyState()
                     : _HistoryList(events: events);
               },
             ),
@@ -1429,11 +1422,7 @@ class _EventIcon extends StatelessWidget {
 //  Empty state
 // ──────────────────────────────────────────────
 class _EmptyState extends StatelessWidget {
-  const _EmptyState({
-    required this.onStartMonitoring,
-  });
-
-  final VoidCallback onStartMonitoring;
+  const _EmptyState();
 
   @override
   Widget build(BuildContext context) {
@@ -1468,27 +1457,6 @@ class _EmptyState extends StatelessWidget {
               'ابدئي جلسة مراقبة وستظهر الأحداث هنا مع أوقاتها.',
               style: AppTextStyles.helperText,
               textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-            SizedBox(
-              height: 50,
-              child: TextButton(
-                onPressed: onStartMonitoring,
-                style: TextButton.styleFrom(
-                  backgroundColor: AppColors.darkSurface,
-                  foregroundColor: AppColors.darkSurfaceText,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  padding: const EdgeInsets.symmetric(horizontal: 32),
-                ),
-                child: Text(
-                  'بدء المراقبة',
-                  style: AppTextStyles.buttonText.copyWith(
-                    color: AppColors.darkSurfaceText,
-                  ),
-                ),
-              ),
             ),
           ],
         ),

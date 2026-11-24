@@ -409,11 +409,7 @@ class _HomeScreenState extends State<HomeScreen> {
               );
             },
           ),
-          HistoryScreen(
-            onStartMonitoring: () {
-              setState(() => _currentIndex = 0);
-            },
-          ),
+          const HistoryScreen(),
           const CalendarScreen(),
           const SettingsScreen(),
         ],
@@ -1924,7 +1920,9 @@ class _WhiteNoiseCardState
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return Opacity(
+      opacity: 0.45,
+      child: Container(
       padding: const EdgeInsets.symmetric(
         horizontal: 16,
         vertical: 14,
@@ -1997,7 +1995,7 @@ class _WhiteNoiseCardState
                 Text(
                   _isWhiteNoiseOn
                       ? 'قيد التشغيل'
-                      : 'متوقفة حالياً',
+                      : 'متاحة في GP2',
                   style: AppTextStyles
                       .featureDesc
                       .copyWith(
@@ -2014,12 +2012,7 @@ class _WhiteNoiseCardState
 
           Switch(
             value: _isWhiteNoiseOn,
-            onChanged: (value) {
-              setState(() {
-                _isWhiteNoiseOn =
-                    value;
-              });
-            },
+            onChanged: null,
             activeThumbColor:
                 Colors.white,
             activeTrackColor:
@@ -2030,6 +2023,7 @@ class _WhiteNoiseCardState
                 AppColors.borderBeige,
           ),
         ],
+      ),
       ),
     );
   }
