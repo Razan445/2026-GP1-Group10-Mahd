@@ -21,12 +21,11 @@ class MahdNotificationDestination {
   final String? eventId;
 }
 
-/// GP1 notification coordinator. Both system notifications and the in-app
-/// unread bell refer to the same authenticated account's events.
+/// GP1 notification coordinator. System notifications open the existing
+/// monitoring-history and reminders tabs directly; no in-app inbox is stored.
 ///
-/// Local calendar alarms are scheduled by the operating system. Once a due
-/// reminder is observed inside Flutter, we persist the corresponding inbox
-/// entry. We never claim that Dart executed at the time of a closed-app alarm.
+/// Local reminder alarms are scheduled by the operating system. No raw audio
+/// or additional notification records are written to Firestore.
 class MahdNotificationService with WidgetsBindingObserver {
   MahdNotificationService._();
   static final MahdNotificationService instance =
@@ -57,17 +56,6 @@ class MahdNotificationService with WidgetsBindingObserver {
       !kIsWeb &&
       (defaultTargetPlatform == TargetPlatform.android ||
           defaultTargetPlatform == TargetPlatform.iOS);
-
-  CollectionReference<Map<String, dynamic>> _inbox(String uid) =>
-      FirebaseFirestore.instance.collection('accounts').doc(uid).collection(
-            'notifications',
-          );
-
-  Stream<QuerySnapshot<Map<String, dynamic>>> watchUnread() {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return const Stream.empty();
-    return _inbox(uid).where('isRead', isEqualTo: false).snapshots();
-  }
 
   /// Initialize before runApp to capture cold-start notification taps.
   /// No alert permission prompt is shown until the user schedules a reminder.
@@ -287,11 +275,8 @@ class MahdNotificationService with WidgetsBindingObserver {
       await _cancelAllManagedReminderAlarms();
       return;
     }
-    final enabledSince = await LocalSettingsService.instance
-        .getReminderAlertsEnabledSince();
     final now = DateTime.now();
     final upcoming = <({int id, String reminderId, String title, DateTime date})>[];
-    final due = <({String reminderId, String title, DateTime date})>[];
 
     for (final doc in docs) {
       final row = doc.data();
@@ -306,10 +291,6 @@ class MahdNotificationService with WidgetsBindingObserver {
           title: title,
           date: date,
         ));
-      } else if (date.isAfter(now.subtract(const Duration(days: 30))) &&
-          enabledSince != null &&
-          !date.isBefore(enabledSince)) {
-        due.add((reminderId: doc.id, title: title, date: date));
       }
     }
 
@@ -334,32 +315,6 @@ class MahdNotificationService with WidgetsBindingObserver {
         }
       } catch (error) {
         debugPrint('Mahd native reminder scheduling: $error');
-      }
-    }
-
-    // A scheduled local notification can fire with Dart fully suspended.
-    // After opening the app, reconstruct the bell entry from Firestore's
-    // original due time, never using the later app-opening time as dueAt.
-    for (final entry in due) {
-      if (_user?.uid != uid) break;
-      final eventId =
-          'reminder_${entry.reminderId}_${entry.date.millisecondsSinceEpoch}';
-      final doc = _inbox(uid).doc(eventId);
-      try {
-        final existing = await doc.get();
-        if (!existing.exists) {
-          await doc.set({
-            'eventId': eventId,
-            'type': 'reminder',
-            'reminderId': entry.reminderId,
-            'title': entry.title,
-            'dueAt': Timestamp.fromDate(entry.date),
-            'isRead': false,
-            'createdAt': FieldValue.serverTimestamp(),
-          });
-        }
-      } catch (error) {
-        debugPrint('Mahd reminder inbox sync: $error');
       }
     }
   }
@@ -493,23 +448,7 @@ class MahdNotificationService with WidgetsBindingObserver {
     );
 
     // Keep test notifications separate from confirmed cryData records.
-    // This creates the in-app unread bell without inflating cry statistics.
-    try {
-      await _inbox(uid).doc(eventId).set({
-        'eventId': eventId,
-        'type': 'classifier_test',
-        'isClassifierTest': true,
-        'cause': cause,
-        'confidence': confidence,
-        'detectedAt': Timestamp.fromDate(DateTime.now()),
-        'isRead': false,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-    } catch (error) {
-      debugPrint(
-        'MAHD DEBUG: Failed to save test notification inbox entry: $error',
-      );
-    }
+    // Debug alerts are local only; no notification document is stored.
 
     debugPrint(
       'MAHD DEBUG: Classifier test notification sent.',
@@ -541,64 +480,4 @@ class MahdNotificationService with WidgetsBindingObserver {
       payload: 'cry|$eventId',
     );
   }
-
-  /// Persist the same event ID for the in-app red bell dot. This write may
-  /// synchronize after the system alert if the phone was temporarily offline.
-  Future<void> publishRealCry({
-    required String eventId,
-    required String sessionId,
-    required String cause,
-    required double confidence,
-    required DateTime detectedAt,
-  }) async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null ||
-        !await LocalSettingsService.instance.getCryAlertsEnabled()) {
-      return;
-    }
-    await _inbox(uid).doc('cry_$eventId').set({
-      'eventId': eventId,
-      'type': 'cry',
-      'cryResultId': eventId,
-      'sessionId': sessionId,
-      'cause': cause,
-      'confidence': confidence,
-      'detectedAt': Timestamp.fromDate(detectedAt),
-      'isRead': false,
-      'createdAt': FieldValue.serverTimestamp(),
-    });
-  }
-
-  /// The Home bell has only a red dot and a short dialog, not an inbox screen.
-  /// Cry alerts open history; when there are only calendar alerts, open calendar.
-  Future<int?> markUnreadAndGetTargetTab() async {
-  final uid = FirebaseAuth.instance.currentUser?.uid;
-  if (uid == null) return null;
-
-  final unread = await _inbox(uid)
-      .where('isRead', isEqualTo: false)
-      .get();
-
-  if (unread.docs.isEmpty) return null;
-
-  final hasCry = unread.docs.any(
-    (doc) =>
-        doc.data()['type'] == 'cry' ||
-        doc.data()['type'] == 'classifier_test',
-  );
-
-  final batch = FirebaseFirestore.instance.batch();
-
-  for (final doc in unread.docs) {
-    batch.update(doc.reference, {'isRead': true});
-  }
-
-  await batch.commit();
-
-  final hasReminder = unread.docs.any(
-    (doc) => doc.data()['type'] == 'reminder',
-  );
-
-  return hasCry ? 1 : (hasReminder ? 2 : 0);
-}
 }

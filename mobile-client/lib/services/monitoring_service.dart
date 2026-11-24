@@ -39,7 +39,7 @@ class MonitoringService {
   /// يستدعيها الـML model فقط عندما يكتشف بكاء حقيقي
   /// ويحدد السبب ونسبة الثقة.
   ///
-  /// It writes one cry event and one linked notification inbox entry. Only
+  /// It writes one cry event to the approved cryData collection. Only
   /// real model output may call this method; never call it from mock cards.
   Future<void> saveCryData({
     required String cause,
@@ -69,27 +69,15 @@ class MonitoringService {
       debugPrint('Mahd local cry alert: $error');
     }
 
-    // Both writes use the same ID, timestamp, label and confidence. Firestore
-    // can queue them offline and synchronize when connectivity is restored.
-    final cryWrite = _firestoreService.createCryData(
+    // The cry event uses the original ID, timestamp, cause, and confidence.
+    // Firestore can queue it offline and synchronize when connectivity returns.
+    await _firestoreService.createCryData(
       sessionId: sessionId,
       cause: cause,
       confidence: confidence,
       detectedAt: occurrenceTime,
       cryResultId: eventId,
     );
-    final inboxWrite = MahdNotificationService.instance.publishRealCry(
-      eventId: eventId,
-      sessionId: sessionId,
-      cause: cause,
-      confidence: confidence,
-      detectedAt: occurrenceTime,
-    );
-
-    await Future.wait<void>([
-      cryWrite.then((_) {}),
-      inboxWrite,
-    ]);
   }
 
   /// جاهزة للترم القادم عند توفر بيانات الحساسات الحقيقية.

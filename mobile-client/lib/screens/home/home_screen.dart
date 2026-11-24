@@ -27,23 +27,14 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
-  bool _hasImportantReminders = false;
   bool _isMonitoring = false;
   bool _isMonitoringActionInProgress = false;
   String? _activeSessionId;
-
-  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _unreadSubscription;
 
   @override
   void initState() {
     super.initState();
     final notifications = MahdNotificationService.instance;
-    _unreadSubscription = notifications.watchUnread().listen((snapshot) {
-      if (!mounted) return;
-      setState(() => _hasImportantReminders = snapshot.docs.isNotEmpty);
-    }, onError: (Object error) {
-      debugPrint('Bell unread status: $error');
-    });
     notifications.navigationRequest.addListener(_handleNotificationNavigation);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -260,7 +251,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
-    _unreadSubscription?.cancel();
     MahdNotificationService.instance.navigationRequest.removeListener(
       _handleNotificationNavigation,
     );
@@ -270,118 +260,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
 
     super.dispose();
-  }
-
-  Future<void> _showReminderDialog() async {
-    await showDialog<void>(
-      context: context,
-      barrierColor: Colors.black.withValues(alpha: 0.28),
-      builder: (dialogContext) {
-        return Directionality(
-          textDirection: TextDirection.rtl,
-          child: AlertDialog(
-            backgroundColor: AppColors.cardSurface,
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(24),
-            ),
-            title: Text(
-              _hasImportantReminders ? 'عندك إشعارات جديدة' : 'ما عندك إشعارات جديدة',
-              textAlign: TextAlign.center,
-              style: AppTextStyles.screenTitle.copyWith(
-                fontSize: 18,
-              ),
-            ),
-            content: Text(
-              _hasImportantReminders
-                  ? 'لديك تنبيهات جديدة من مهد، يمكنك عرضها في السجل أو التقويم.'
-                  : 'ستظهر هنا إشعارات مهد الجديدة عند وصولها.',
-              textAlign: TextAlign.center,
-              style: AppTextStyles.helperText.copyWith(
-                fontSize: 11.5,
-                height: 1.7,
-              ),
-            ),
-            actionsPadding: const EdgeInsets.fromLTRB(
-              18,
-              8,
-              18,
-              18,
-            ),
-            actions: [
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () {
-                        Navigator.of(dialogContext).pop();
-                      },
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.textPrimary,
-                        side: const BorderSide(
-                          color: AppColors.borderBeige,
-                          width: 1.2,
-                        ),
-                        minimumSize: const Size(
-                          double.infinity,
-                          46,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                      ),
-                      child: Text(
-                        'إغلاق',
-                        style: AppTextStyles.buttonTextDark.copyWith(
-                          fontSize: 12.5,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: _hasImportantReminders
-                          ? () async {
-                              Navigator.of(dialogContext).pop();
-                              try {
-                                final tab = await MahdNotificationService.instance
-                                    .markUnreadAndGetTargetTab();
-                                if (mounted && tab != null) {
-                                  setState(() => _currentIndex = tab);
-                                }
-                              } catch (error) {
-                                debugPrint('Open notification bell: $error');
-                              }
-                            }
-                          : null,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        minimumSize: const Size(
-                          double.infinity,
-                          46,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                      ),
-                      child: Text(
-                        'عرضها',
-                        style: AppTextStyles.buttonText.copyWith(
-                          fontSize: 12.5,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        );
-      },
-    );
   }
 
   @override
@@ -395,8 +273,6 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           _HomeTab(
             greeting: _greeting,
-            showReminderBadge: _hasImportantReminders,
-            onBellTap: _showReminderDialog,
             isMonitoring: _isMonitoring,
             isMonitoringActionInProgress: _isMonitoringActionInProgress,
             monitoringDurationText: _formattedMonitoringDuration,
@@ -431,8 +307,6 @@ class _HomeScreenState extends State<HomeScreen> {
 class _HomeTab extends StatelessWidget {
   const _HomeTab({
     required this.greeting,
-    required this.showReminderBadge,
-    required this.onBellTap,
     required this.isMonitoring,
     required this.isMonitoringActionInProgress,
     required this.monitoringDurationText,
@@ -441,8 +315,6 @@ class _HomeTab extends StatelessWidget {
   });
 
   final String greeting;
-  final bool showReminderBadge;
-  final VoidCallback onBellTap;
   final bool isMonitoring;
   final bool isMonitoringActionInProgress;
   final String monitoringDurationText;
@@ -458,10 +330,7 @@ class _HomeTab extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // ── Top bar ──────────────────────────────────────
-            _TopBar(
-              showReminderBadge: showReminderBadge,
-              onBellTap: onBellTap,
-            ),
+            const _TopBar(),
 
             const SizedBox(height: 6),
 
@@ -535,78 +404,22 @@ class _HomeTab extends StatelessWidget {
   }
 }
 
-// ── Top bar (logo + notification bell) ──────────────────────────
+// ── Top bar (logo) ──────────────────────────────────────────────
 
 class _TopBar extends StatelessWidget {
-  const _TopBar({
-    required this.showReminderBadge,
-    required this.onBellTap,
-  });
-
-  final bool showReminderBadge;
-  final VoidCallback onBellTap;
+  const _TopBar();
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(
-        vertical: 10,
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Image.asset(
-            'assets/images/mahd-logo.png',
-            width: 62,
-            fit: BoxFit.contain,
-          ),
-          InkWell(
-            onTap: onBellTap,
-            borderRadius: BorderRadius.circular(15),
-            child: Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                color: AppColors.cardSurface,
-                borderRadius: BorderRadius.circular(15),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color(0x0F785037),
-                    blurRadius: 14,
-                    offset: Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  const Icon(
-                    Icons.notifications_none_rounded,
-                    color: AppColors.textPrimary,
-                    size: 22,
-                  ),
-                  if (showReminderBadge)
-                    Positioned(
-                      top: 9,
-                      left: 10,
-                      child: Container(
-                        width: 8,
-                        height: 8,
-                        decoration: BoxDecoration(
-                          color: AppColors.alert,
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: Colors.white,
-                            width: 1.5,
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
-        ],
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Align(
+        alignment: AlignmentDirectional.centerStart,
+        child: Image.asset(
+          'assets/images/mahd-logo.png',
+          width: 62,
+          fit: BoxFit.contain,
+        ),
       ),
     );
   }
