@@ -20,7 +20,7 @@ ai-audio-model/
 
 ## Google Drive — AI Files
 
-**Shared Google Drive folder:** `[PASTE_GOOGLE_DRIVE_LINK_HERE]`
+**Shared Google Drive folder:** `[https://studentksuedu-my.sharepoint.com/:f:/g/personal/445202280_student_ksu_edu_sa/IgDrIW0pAzo1SbVE33VZ0cysAeUv6XQiDPSYRiyX6JAMTgc?e=EvXErU]`
 
 Replace the placeholder above with the Google Drive folder link when it is available. This folder can be used to share large model files and other AI resources that are not stored directly in GitHub.
 
