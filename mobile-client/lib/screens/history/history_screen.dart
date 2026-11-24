@@ -109,7 +109,12 @@ const _causeStats = [
 //  Screen
 // ──────────────────────────────────────────────
 class HistoryScreen extends StatefulWidget {
-  const HistoryScreen({super.key});
+  const HistoryScreen({
+    super.key,
+    required this.onStartMonitoring,
+  });
+
+  final VoidCallback onStartMonitoring;
 
   @override
   State<HistoryScreen> createState() => _HistoryScreenState();
@@ -179,7 +184,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
                         ))
                     .toList(growable: false);
                 return events.isEmpty
-                    ? const _EmptyState()
+                    ? _EmptyState(
+                      onStartMonitoring: widget.onStartMonitoring,
+                    )
                     : _HistoryList(events: events);
               },
             ),
@@ -1422,7 +1429,11 @@ class _EventIcon extends StatelessWidget {
 //  Empty state
 // ──────────────────────────────────────────────
 class _EmptyState extends StatelessWidget {
-  const _EmptyState();
+  const _EmptyState({
+    required this.onStartMonitoring,
+  });
+
+  final VoidCallback onStartMonitoring;
 
   @override
   Widget build(BuildContext context) {
@@ -1462,7 +1473,7 @@ class _EmptyState extends StatelessWidget {
             SizedBox(
               height: 50,
               child: TextButton(
-                onPressed: () {},
+                onPressed: onStartMonitoring,
                 style: TextButton.styleFrom(
                   backgroundColor: AppColors.darkSurface,
                   foregroundColor: AppColors.darkSurfaceText,

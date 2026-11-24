@@ -409,7 +409,11 @@ class _HomeScreenState extends State<HomeScreen> {
               );
             },
           ),
-          const HistoryScreen(),
+          HistoryScreen(
+            onStartMonitoring: () {
+              setState(() => _currentIndex = 0);
+            },
+          ),
           const CalendarScreen(),
           const SettingsScreen(),
         ],

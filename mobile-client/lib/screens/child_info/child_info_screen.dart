@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/arabic_number_formatter.dart';
+import '../../widgets/mahd_arabic_date_picker.dart';
 import '../../services/firestore_service.dart';
 import '../../widgets/app_snack_bar.dart';
 import '../../widgets/primary_button.dart';
@@ -77,30 +78,11 @@ class _ChildInfoScreenState extends State<ChildInfoScreen> {
   Future<void> _pickDate() async {
     final now = DateTime.now();
 
-    final picked = await showDatePicker(
+    final picked = await showMahdArabicDatePicker(
       context: context,
       initialDate: _dateOfBirth ?? now,
       firstDate: now.subtract(const Duration(days: 365 * 3)),
       lastDate: now,
-      locale: const Locale('ar'),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: AppColors.primary,
-              onPrimary: Colors.white,
-              surface: AppColors.backgroundCream,
-              onSurface: AppColors.textPrimary,
-            ),
-            textButtonTheme: TextButtonThemeData(
-              style: TextButton.styleFrom(
-                foregroundColor: AppColors.primary,
-              ),
-            ),
-          ),
-          child: child!,
-        );
-      },
     );
 
     if (picked == null || !mounted) return;
