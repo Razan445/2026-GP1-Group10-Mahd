@@ -13,6 +13,8 @@ class MahdCryEvent {
     required this.cause,
     required this.detectedAt,
     this.confidence,
+    this.secondaryCause,
+    this.secondaryConfidence,
     this.temperature,
     this.humidity,
   });
@@ -22,6 +24,8 @@ class MahdCryEvent {
   final String cause;
   final DateTime detectedAt;
   final double? confidence;
+  final String? secondaryCause;
+  final double? secondaryConfidence;
   final double? temperature;
   final double? humidity;
 }
@@ -68,12 +72,19 @@ class CryEventsRepository {
                       if (stamp is! Timestamp) return null;
                       final cause = (row['cause'] as String? ?? '').trim();
                       if (cause.isEmpty) return null;
+                      final secondaryCauseRaw =
+                          (row['secondaryCause'] as String? ?? '').trim();
                       return MahdCryEvent(
                         id: doc.id,
                         sessionId: sessionId,
                         cause: cause,
                         detectedAt: stamp.toDate(),
                         confidence: (row['confidence'] as num?)?.toDouble(),
+                        secondaryCause: secondaryCauseRaw.isEmpty
+                            ? null
+                            : secondaryCauseRaw,
+                        secondaryConfidence:
+                            (row['secondaryConfidence'] as num?)?.toDouble(),
                         temperature: (row['temperature'] as num?)?.toDouble(),
                         humidity: (row['humidity'] as num?)?.toDouble(),
                       );
@@ -113,6 +124,8 @@ String mahdCryLabelArabic(String label) {
       return 'عدم الراحة';
     case 'burping':
       return 'الحاجة للتجشؤ';
+    case 'unclassified':
+      return 'غير محدد';
     default:
       return label;
   }

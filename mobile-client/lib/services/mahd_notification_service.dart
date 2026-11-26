@@ -457,16 +457,22 @@ class MahdNotificationService with WidgetsBindingObserver {
 
   /// Show a system alert immediately after a *real* inference result, without
   /// waiting for Firestore networking. This is why GP1 does not need FCM.
-  Future<void> showRealCryLocal({required String eventId}) async {
+  Future<void> showRealCryLocal({
+    required String eventId,
+    String? body,
+  }) async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null || !_nativeReady ||
         !await LocalSettingsService.instance.getCryAlertsEnabled()) {
       return;
     }
+    final message = (body != null && body.trim().isNotEmpty)
+        ? body.trim()
+        : 'اضغطي للاطلاع على تفاصيل الحالة في سجل المراقبة';
     await _plugin.show(
       _notificationId('cry:$uid:$eventId'),
       'مهد — تم رصد بكاء الطفل',
-      'اضغطي للاطلاع على تفاصيل الحالة في سجل المراقبة',
+      message,
       const NotificationDetails(
         android: AndroidNotificationDetails(
           _cryChannelId,

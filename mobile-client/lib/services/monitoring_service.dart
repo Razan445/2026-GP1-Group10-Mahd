@@ -45,6 +45,9 @@ class MonitoringService {
     required String cause,
     required double confidence,
     DateTime? detectedAt,
+    String? secondaryCause,
+    double? secondaryConfidence,
+    String? notificationBody,
   }) async {
     final sessionId = activeSessionId;
 
@@ -57,6 +60,16 @@ class MonitoringService {
     if (!confidence.isFinite || confidence < 0 || confidence > 1) {
       throw ArgumentError.value(confidence, 'confidence', 'Expected 0..1');
     }
+    if (secondaryConfidence != null &&
+        (!secondaryConfidence.isFinite ||
+            secondaryConfidence < 0 ||
+            secondaryConfidence > 1)) {
+      throw ArgumentError.value(
+        secondaryConfidence,
+        'secondaryConfidence',
+        'Expected 0..1',
+      );
+    }
     final occurrenceTime = detectedAt ?? DateTime.now();
     final eventId = _firestoreService.reserveCryDataId(sessionId: sessionId);
 
@@ -64,6 +77,7 @@ class MonitoringService {
     try {
       await MahdNotificationService.instance.showRealCryLocal(
         eventId: eventId,
+        body: notificationBody,
       );
     } catch (error) {
       debugPrint('Mahd local cry alert: $error');
@@ -77,6 +91,8 @@ class MonitoringService {
       confidence: confidence,
       detectedAt: occurrenceTime,
       cryResultId: eventId,
+      secondaryCause: secondaryCause,
+      secondaryConfidence: secondaryConfidence,
     );
   }
 

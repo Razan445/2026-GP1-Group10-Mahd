@@ -1,63 +1,113 @@
 import 'dart:convert';
 import 'dart:math';
 import 'dart:typed_data';
+
 import 'package:flutter/services.dart';
 import 'package:onnxruntime/onnxruntime.dart';
 
-class CryClassifierService {
-  OrtSession? _session;
-  List<String> _labels = [];
+import 'cry_cause_classifier.dart';
 
+/// Stage 2 Cry Cause Classifier backed by ONNX Runtime.
+///
+/// Currently loads `mahd_pipeline1_int8.onnx` (DistilHuBERT) as an interim
+/// classifier until the final Lightweight 2D-CNN model replaces it.
+class CryClassifierService implements CryCauseClassifier {
+  OrtSession? _session;
+  List<String> _labels = const [];
+  int _windowSamples = 32000;
+  String _inputName = 'audio';
+
+  @override
+  int get windowSamples => _windowSamples;
+
+  @override
   Future<void> init() async {
+    if (_session != null) return;
+
     OrtEnv.instance.init();
 
-    // 1) قراءة أسماء الفئات من ملف meta.json
-    final metaStr = await rootBundle.loadString('assets/models/mahd_pipeline1_meta.json');
-    final meta = jsonDecode(metaStr);
-    _labels = List<String>.from(meta['labels']);
+    final metaStr = await rootBundle.loadString(
+      'assets/models/mahd_pipeline1_meta.json',
+    );
+    final meta = jsonDecode(metaStr) as Map<String, dynamic>;
+    _labels = List<String>.from(meta['labels'] as List);
+    _windowSamples = (meta['window_samples'] as num?)?.toInt() ?? 32000;
+    _inputName = (meta['input_name'] as String?) ?? 'audio';
 
-    // 2) تحميل ملف الـ ONNX مباشرة من assets إلى الذاكرة
-    final rawModel = await rootBundle.load('assets/models/mahd_pipeline1_int8.onnx');
-    final bytes = rawModel.buffer.asUint8List();
+    final rawModel = await rootBundle.load(
+      'assets/models/mahd_pipeline1_int8.onnx',
+    );
+    final bytes = rawModel.buffer.asUint8List(
+      rawModel.offsetInBytes,
+      rawModel.lengthInBytes,
+    );
+
     final sessionOptions = OrtSessionOptions();
-    _session = OrtSession.fromBuffer(bytes, sessionOptions);
+    try {
+      _session = OrtSession.fromBuffer(bytes, sessionOptions);
+    } finally {
+      sessionOptions.release();
+    }
   }
 
-  /// تمررين له الصوت الخام بطول 32000 عينة (ثانيتين على 16kHz)
-  Future<Map<String, double>> predict(Float32List audio32k) async {
-    if (_session == null) throw Exception('Model not initialized');
+  /// Classifies one 2.0-second (32,000-sample) mono 16 kHz audio window.
+  /// Applies peak normalization safely before inference; zero-mean/unit-var
+  /// normalization and Softmax are built inside the ONNX graph.
+  @override
+  Future<Map<String, double>> predict(Float32List audioWindow) async {
+    final session = _session;
+    if (session == null) {
+      throw StateError('CryClassifierService is not initialized.');
+    }
 
-    // Peak normalization فقط (التطبيع الإحصائي والـ Softmax مدمجة داخل الـ ONNX)
     double maxAbs = 0.0;
-    for (final v in audio32k) {
-      if (v.abs() > maxAbs) maxAbs = v.abs();
-    }
-    final normalized = Float32List(32000);
-    final len = min(audio32k.length, 32000);
+    final len = min(audioWindow.length, _windowSamples);
     for (int i = 0; i < len; i++) {
-      normalized[i] = maxAbs > 0 ? (audio32k[i] / maxAbs) : audio32k[i];
+      final v = audioWindow[i].abs();
+      if (v > maxAbs) maxAbs = v;
     }
 
-    // تجهيز المدخل بنفس الاسم اللي صدّرناه ("audio")
-    final inputTensor = OrtValueTensor.createTensorWithDataList(normalized, [1, 32000]);
+    final normalized = Float32List(_windowSamples);
+    if (maxAbs > 1e-6) {
+      for (int i = 0; i < len; i++) {
+        normalized[i] = audioWindow[i] / maxAbs;
+      }
+    }
+
+    final inputTensor = OrtValueTensor.createTensorWithDataList(
+      normalized,
+      [1, _windowSamples],
+    );
     final runOptions = OrtRunOptions();
-    final outputs = await _session!.runAsync(runOptions, {'audio': inputTensor});
+    List<OrtValue?>? outputs;
 
-    // قراءة مصفوفة الاحتمالات الجاهزة ("probs")
-    final probs = (outputs?.first?.value as List<List<double>>).first;
+    try {
+      outputs = await session.runAsync(runOptions, {
+        _inputName: inputTensor,
+      });
 
-    // مهم جداً: تحرير الذاكرة بعد كل استنتاج
-    inputTensor.release();
-    runOptions.release();
-    outputs?.forEach((e) => e?.release());
+      final probs = (outputs?.first?.value as List<List<double>>).first;
+      if (probs.length != _labels.length) {
+        throw StateError(
+          'Classifier output length (${probs.length}) does not match '
+          'labels length (${_labels.length}).',
+        );
+      }
 
-    return {
-      for (int i = 0; i < _labels.length; i++) _labels[i]: probs[i],
-    };
+      return {
+        for (int i = 0; i < _labels.length; i++) _labels[i]: probs[i],
+      };
+    } finally {
+      inputTensor.release();
+      runOptions.release();
+      outputs?.forEach((e) => e?.release());
+    }
   }
 
+  @override
   void dispose() {
     _session?.release();
-    OrtEnv.instance.release();
+    _session = null;
+    // Do NOT call OrtEnv.instance.release(): shared with CryDetectionService.
   }
 }

@@ -6,7 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:record/record.dart';
 
-import 'cry_classifier_debug_service.dart';
+import 'cry_monitoring_pipeline.dart';
 import 'monitoring_foreground_service.dart';
 
 class AudioMonitoringPermissionException implements Exception {
@@ -98,14 +98,11 @@ class AudioMonitoringService {
         (_) => _checkAudioHealth(),
       );
 
-      // Temporary GP1 integration test. Runs only in Flutter Debug mode.
-      // Real microphone audio is classified by the real ONNX model.
-      // Confirmed Cry Detection will be integrated separately.
-      if (kDebugMode) {
-        unawaited(
-          CryClassifierDebugService.instance.start(controller.stream),
-        );
-      }
+      // Start the two-stage on-device Cry Detection (CRNN) -> Cry Cause
+      // Classification pipeline in both debug and release builds.
+      unawaited(
+        CryMonitoringPipeline.instance.start(controller.stream),
+      );
     } catch (_) {
       _healthCheckTimer?.cancel();
       _healthCheckTimer = null;
@@ -354,10 +351,8 @@ class AudioMonitoringService {
       }
 
       if (_isMonitoring || _audioController != null) {
-        // Stop classifier inference before closing its microphone stream.
-        if (kDebugMode) {
-          await CryClassifierDebugService.instance.stop();
-        }
+        // Stop the two-stage pipeline before closing its microphone stream.
+        await CryMonitoringPipeline.instance.stop();
 
         await _recorderSubscription?.cancel();
         _recorderSubscription = null;

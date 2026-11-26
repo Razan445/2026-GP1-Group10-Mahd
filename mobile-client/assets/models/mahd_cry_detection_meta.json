@@ -1,0 +1,13 @@
+{
+  "model": "mahd_cry_detection_crnn.onnx",
+  "sample_rate": 16000,
+  "window_samples": 16000,
+  "context_seconds": 4,
+  "total_seconds": 5,
+  "input_audio_name": "audio",
+  "input_ok_name": "ok",
+  "output_score_name": "score",
+  "threshold": 2.900390625,
+  "alert_seconds": 2,
+  "note": "Input 'audio' is raw float32 mono PCM [1, 5, 16000] in [-1, 1] (index 0 = current second) WITHOUT peak normalization. Log-Mel, loudness norm, and standardization are built inside the ONNX graph."
+}

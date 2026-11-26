@@ -327,16 +327,27 @@ class FirestoreService {
     required double confidence,
     DateTime? detectedAt,
     String? cryResultId,
+    String? secondaryCause,
+    double? secondaryConfidence,
   }) async {
     final document = _cryData(sessionId).doc(cryResultId);
 
-    await document.set({
+    final payload = <String, dynamic>{
       'cause': cause,
       'confidence': confidence,
       // Inference time, not the potentially delayed upload/server time.
       'timestamp': Timestamp.fromDate(detectedAt ?? DateTime.now()),
       'recordedAt': FieldValue.serverTimestamp(),
-    });
+    };
+
+    if (secondaryCause != null && secondaryCause.trim().isNotEmpty) {
+      payload['secondaryCause'] = secondaryCause.trim();
+    }
+    if (secondaryConfidence != null && secondaryConfidence.isFinite) {
+      payload['secondaryConfidence'] = secondaryConfidence;
+    }
+
+    await document.set(payload);
 
     return document.id;
   }
