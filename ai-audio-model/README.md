@@ -1,35 +1,12 @@
-# Mahd AI Audio Model
+# Mahd — AI Audio Model
 
-This folder contains the audio AI development work for **Mahd**, an intelligent infant monitoring system. The AI work focuses on infant cry detection and cry-cause classification.
+All AI datasets, preprocessing scripts, feature extraction outputs, training experiments, and trained models are maintained in a centralized **Google Drive** workspace directly mounted to **Google Colab** for seamless access and automatic saving during experimentation:
 
-## Folder Structure
+🔗 **Google Drive — AI Workspace:** [Access Mahd AI Shared Folder](https://drive.google.com/drive/folders/19f9nYoCtNWN_Lze9jE7TZLkA0h5V0Hem?usp=drive_link)
 
-```text
-ai-audio-model/
-├── 1_data_preprocessing/
-├── 2_feature_extraction/
-├── 3_model_inference/
-├── Mahd_cry_detection_model.ipynb
-└── README.md
-```
+## Two-Stage AI Architecture
 
-- **`1_data_preprocessing/`** — Data preprocessing resources and scripts.
-- **`2_feature_extraction/`** — Feature extraction resources and experiments.
-- **`3_model_inference/`** — Model inference and evaluation work.
-- **`Mahd_cry_detection_model.ipynb`** — Cry-detection development notebook.
+Mahd's audio intelligence follows a **two-stage classification architecture**:
 
-## Google Drive — AI Files
-
-**Shared Google Drive folder:** `https://studentksuedu-my.sharepoint.com/:f:/g/personal/445202280_student_ksu_edu_sa/IgDrIW0pAzo1SbVE33VZ0cysAeUv6XQiDPSYRiyX6JAMTgc?e=EvXErU`
-
-Replace the placeholder above with the Google Drive folder link when it is available. This folder can be used to share large model files and other AI resources that are not stored directly in GitHub.
-
-## Integration with the Mobile Application
-
-The Flutter app is located in [`../mobile-client/`](../mobile-client/).
-
-The mobile app currently supports microphone audio capture and an **experimental ONNX cry-cause classification test**. This debug test is not a completed cry-detection pipeline. Final integration will need to detect crying before classifying its cause and recording a confirmed event.
-
-## Development Status
-
-AI model development and end-to-end integration are ongoing. Final model specifications, evaluation results, and deployment instructions should be added once confirmed by the AI team.
+1. **Stage 1 — Cry Detection (Binary Classification):** Distinguishes infant crying (`Cry`) from household background noise and non-cry human sounds (`Non-Cry`).
+2. **Stage 2 — Cry Cause Classification (Multi-Class Classification):** Triggered only when a cry is detected, classifying the cry into one of five target causes: **Hunger**, **Pain**, **Tired**, **Discomfort**, or **Burping**.
